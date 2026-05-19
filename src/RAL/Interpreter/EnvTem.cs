@@ -8,9 +8,9 @@ public class EnvTem {
     //Datastructure "template table"
     private readonly Dictionary<string, tAttribute > tTable = new();
 
-    public void Bind(string templateId, List<string> parameterNames, Stmt body) {
+    public void Bind(string templateId, List<string> parameterNames, Stmt body, EnvV declarationScope) {
 
-        tTable.Add(templateId, new tAttribute(parameterNames, body));        
+        tTable.Add(templateId, new tAttribute(parameterNames, body, declarationScope));        
     }
 
     internal tAttribute Lookup(string templateId) {
@@ -20,5 +20,6 @@ public class EnvTem {
 
 internal record class tAttribute(
         List<string> ParameterNames,
-        Stmt Body
+        Stmt Body,
+        EnvV DeclarationScope
     );
