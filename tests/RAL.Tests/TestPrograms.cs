@@ -269,6 +269,41 @@ static class TestPrograms
     public const string InvalidTemplateCallUnknownTemplate =
         "use missingTemplate(2);";
 
+    // A template that performs a reservation using its bound resource parameter.
+    // After "use bookStay(roomA);" the outer variable "stay" must be a non-failed
+    // ReservationVal whose single atom reserves exactly roomA from 15/03-2026 to
+    // 17/03-2026 — proving that the template body actually executes against the
+    // bound argument and produces an observable reservation side effect, not just
+    // a primitive value assignment.
+    public const string TemplateReservationBodyProgram =
+        "category Room;\n" +
+        "Room roomA {}\n" +
+        "Reservation stay;\n" +
+        "template bookStay(Room r) {\n" +
+        "  stay = reserve r from 15/03-2026 to 17/03-2026;\n" +
+        "}\n" +
+        "use bookStay(roomA);";
+
+    // The full UC10 compound booking pattern: a template that takes a room
+    // parameter and produces TWO reservations in its body — a stay on the
+    // parameter room, and a cleaning slot on the global cleaner immediately
+    // after the stay. The "seq" combinator merges both atoms into one
+    // composite ReservationVal, and the cleaning's start (17/03-2026 00:00)
+    // is exactly the stay's end, encoding UC10's "immediately following the
+    // stay" timing relation. Drives the same Parse → TypeCheck → Interpret
+    // pipeline as the other template programs.
+    public const string TemplateCompoundBookingProgram =
+        "category Room;\n" +
+        "category Cleaner;\n" +
+        "Room roomA {}\n" +
+        "Cleaner janitor {}\n" +
+        "Reservation booking;\n" +
+        "template bookStayWithClean(Room r) {\n" +
+        "  booking = reserve r from 15/03-2026 to 17/03-2026 " +
+        "seq reserve janitor from 17/03-2026 for 2 hours;\n" +
+        "}\n" +
+        "use bookStayWithClean(roomA);";
+
     // ── Invalid syntax ──────────────────────────────────────────────────────
 
     // Missing semicolon after statement.
@@ -435,15 +470,6 @@ static class TestPrograms
         "Room myRoom {}\n" +
         "move myRoom to Suite;\n" +
         "Reservation res = reserve 1 Suite from 15/03-2026 to 16/03-2026;";
-
-    // A template that mutates an outer-scope variable via its parameter.
-    // After "use recordCount(42);" the outer "total" must equal NumberVal(42).
-    // Proves that ExecTemplateCall actually binds parameters at runtime and
-    // that the template body's Set walks up to the enclosing scope.
-    public const string TemplateRuntimeBindingProgram =
-        "Number total = 0;\n" +
-        "template recordCount(Number n) { total = n; }\n" +
-        "use recordCount(42);";
 
     // A then-branch declares a local Number x. After execution the outer
     // scope must NOT see x — Interpreter.HandleIf opens envV.NewScope() for

@@ -5,6 +5,7 @@ Parser.cs
 # ── .NET build output ─────────────────────────────────────────────────────
 bin/
 obj/
+*.lscache
 *.dll
 *.exe
 !Coco.exe

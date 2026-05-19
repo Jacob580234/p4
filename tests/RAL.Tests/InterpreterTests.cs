@@ -13,7 +13,7 @@ namespace RAL.Tests;
  *     and assert on EvalExp output — unit tests of the interpreter.
  *   - Statement tests 1–7 also construct AST nodes directly and drive
  *     ExecStmt against a fresh environment — unit tests.
- *   - Statement tests 8–25 run the full Parse → TypeCheck → Interpret
+ *   - Statement tests 8–26 run the full Parse → TypeCheck → Interpret
  *     pipeline because they exercise side effects on ResourceRegistry /
  *     ReservationRegistry that only the Interpreter mutates — acceptance
  *     tests in the study-regulation sense (representative whole programs,
@@ -419,11 +419,11 @@ public class InterpreterTests : IDisposable
         Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
     }
 
-    // ── Statement execution: unit (tests 1–7) → acceptance (tests 8–25) ─────
+    // ── Statement execution: unit (tests 1–7) → acceptance (tests 8–26) ─────
     //
     // These tests drive Interpreter.ExecStmt rather than EvalExp.
     // Tests 1–7 are unit-style: direct AST construction, no parser involved.
-    // Tests 8–25 are acceptance-style: full parse → typecheck → interpret
+    // Tests 8–26 are acceptance-style: full parse → typecheck → interpret
     // pipeline on representative source programs that declare categories /
     // resources / reservations the interpreter mutates via side-effects on
     // EnvV and the global registries. The region break below marks the
@@ -432,11 +432,12 @@ public class InterpreterTests : IDisposable
     //   8–15  basic statement and expression coverage (decls, move, reserve,
     //         cancel, reschedule, availability) — one observable side effect
     //         per test.
-    //   16–24 domain-semantics coverage — composite reservations, recurrence
+    //   16–25 domain-semantics coverage — composite reservations, recurrence
     //         expansion, where-clause filtering at runtime, conflict
     //         detection, move propagation through availability, template
-    //         parameter binding, and if-branch scope isolation.
-    //   25    end-to-end scenario — a single program that exercises every
+    //         parameter binding (single and compound booking patterns), and
+    //         if-branch scope isolation.
+    //   26    end-to-end scenario — a single program that exercises every
     //         front-end module cooperatively (category hierarchy, resource
     //         declarations with properties, move, two reserves, cancel) and
     //         asserts on the joint final state. Matches the study regulation's
@@ -693,7 +694,7 @@ public class InterpreterTests : IDisposable
         Assert.DoesNotContain("Availability check succeeded", output);
     }
 
-    // ── Acceptance: domain-semantics coverage (tests 16–24) ─────────────────
+    // ── Acceptance: domain-semantics coverage (tests 16–25) ─────────────────
     //
     // Acceptance-level tests that drive the full Parse → TypeCheck → Interpret
     // pipeline. Each one pins a piece of domain semantics that the simpler
@@ -861,22 +862,70 @@ public class InterpreterTests : IDisposable
     }
 
     [Fact]  // 23
-    public void TemplateCall_BindsParametersAtRuntime_AndBodyEffectIsObservable()
+    public void TemplateCall_ExecutesReservationBody_AndUsesBoundParameter()
     {
-        // recordCount(n) assigns its parameter to the outer-scope variable
-        // "total" via EnvV.Set, which walks up from the template's child
-        // scope. After "use recordCount(42);" the outer total must equal 42.
-        // Verifies both parameter binding and the parent-scope reach of Set.
-        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.TemplateRuntimeBindingProgram);
+        // bookStay(r) reserves the bound resource for 15/03 → 17/03. The
+        // template is invoked with roomA, so the reservation produced inside
+        // the body must reference exactly roomA on that interval. Verifies
+        // the intended domain use case: templates as reusable booking
+        // patterns whose parameter flows into a reserve statement and yields
+        // an observable reservation side effect — not just a primitive
+        // assignment to an outer variable.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.TemplateReservationBodyProgram);
         TestHelpers.RunTypeChecker(root);
         var envV = new EnvV();
         Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
 
-        var total = Assert.IsType<NumberVal>(envV.Lookup("total"));
-        Assert.Equal(42f, total.Value, precision: 4);
+        var reservation = Assert.IsType<ReservationVal>(envV.Lookup("stay"));
+        Assert.False(reservation.Failed());
+        var atom = Assert.Single(reservation.Reservations);
+        var reserved = Assert.Single(atom.Resources);
+        Assert.Equal("roomA", reserved.ResourceId);
+        Assert.Equal(new DateTime(2026, 3, 15), atom.Start.Value);
+        Assert.Equal(new DateTime(2026, 3, 17), atom.End.Value);
     }
 
     [Fact]  // 24
+    public void TemplateCall_CompoundBookingPattern_ProducesStayAndCleaningReservations()
+    {
+        // bookStayWithClean(r) reserves the bound room for a
+        // fixed stay window AND the global cleaner for a two-hour cleaning
+        // slot immediately following the stay. After "use bookStayWithClean
+        // (roomA);" the outer "booking" must hold a composite ReservationVal
+        // whose first atom reserves roomA on 15/03 → 17/03 and whose second
+        // atom reserves janitor on 17/03 00:00 → 17/03 02:00. The cleaning
+        // atom's Start must equal the stay atom's End.
+        // Complements test 23 (parameter-binding mechanic) with the actual
+        // multi-statement composition that justifies templates as a DSL feature.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.TemplateCompoundBookingProgram);
+        TestHelpers.RunTypeChecker(root);
+        var envV = new EnvV();
+        Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
+
+        var reservation = Assert.IsType<ReservationVal>(envV.Lookup("booking"));
+        Assert.False(reservation.Failed());
+        Assert.True(reservation.IsComposite());
+        Assert.Equal(2, reservation.Reservations.Count);
+
+        // First atom: the stay — roomA, 15/03 → 17/03.
+        var stayAtom = reservation.Reservations[0];
+        var stayResource = Assert.Single(stayAtom.Resources);
+        Assert.Equal("roomA", stayResource.ResourceId);
+        Assert.Equal(new DateTime(2026, 3, 15), stayAtom.Start.Value);
+        Assert.Equal(new DateTime(2026, 3, 17), stayAtom.End.Value);
+
+        // Second atom: the cleaning slot — janitor, 17/03 00:00 → 17/03 02:00.
+        var cleanAtom = reservation.Reservations[1];
+        var cleanResource = Assert.Single(cleanAtom.Resources);
+        Assert.Equal("janitor", cleanResource.ResourceId);
+        Assert.Equal(new DateTime(2026, 3, 17, 0, 0, 0), cleanAtom.Start.Value);
+        Assert.Equal(new DateTime(2026, 3, 17, 2, 0, 0), cleanAtom.End.Value);
+
+        // "Immediately following the stay" — cleaning starts exactly when stay ends.
+        Assert.Equal(stayAtom.End.Value, cleanAtom.Start.Value);
+    }
+
+    [Fact]  // 25
     public void IfThenBranch_LocalDeclaration_DoesNotLeakToOuterScope()
     {
         // "if (true) then { Number x = 5; }" — HandleIf opens a new scope for
@@ -891,7 +940,7 @@ public class InterpreterTests : IDisposable
         Assert.Throws<Exception>(() => envV.Lookup("x"));
     }
 
-    // ── End-to-end acceptance scenario (test 25) ────────────────────────────
+    // ── End-to-end acceptance scenario (test 26) ────────────────────────────
     //
     // Multi-feature program: every front-end module cooperates in a single
     // run. The assertions form a joint contract on the final state, so a
@@ -900,7 +949,7 @@ public class InterpreterTests : IDisposable
     // on EndToEndScenarioProgram in TestPrograms.cs for the source listing
     // and the behavioural rationale behind each assertion.
 
-    [Fact]  // 25
+    [Fact]  // 26
     public void EndToEndScenario_FrontEndModulesCooperate_OnFinalState()
     {
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.EndToEndScenarioProgram);
