@@ -6,14 +6,14 @@ namespace RAL.Interpreter;
 
 class Program {
     static void Main(string[] args) {
-        
+        Console.WriteLine(typeof(Program).Assembly.Location);
         //Ensure RAL src code is provided
-        if (args.Length < 2) { //If no argument is supplied upon running main, args.length = 1 & args[0] == file name
+        if (args.Length < 1) { //If no argument is supplied upon running main, args.length = 1 & args[0] == file name
             PrintUsage();
             Environment.Exit(1); // indicates abnormal program termination (failure)
         }
 
-        string filePath = args[1];
+        string filePath = args[0];
 
         if (!File.Exists(filePath)) {
             Console.WriteLine($"File not found: {filePath}\n");

@@ -57,7 +57,7 @@ public class ResourceRegistry {
             s += $"__In {category.Key} category:__\n\n";
 
             foreach (ResourceVal resource in category.Value) {
-                s += resource.ToString();
+                s += resource.ToString() + "\n";
             }
 
             s += $"\n__End of {category.Key} category__\n\n";;

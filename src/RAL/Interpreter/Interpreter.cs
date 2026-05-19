@@ -29,7 +29,7 @@ public class Interpreter {
 
             case Cancel c: ExecCancel(c, envV, envH); break;
 
-            case ExpStmt s: Console.WriteLine(EvalExp(s.Expression, envV, envH)); break;
+            case ExpStmt s: EvalExp(s.Expression, envV, envH); break;
 
             case Availability av: HandleAvailability(av, envV, envH); break;
             default: throw new Exception($"Unknown Statement: " + stmt.ToString());
