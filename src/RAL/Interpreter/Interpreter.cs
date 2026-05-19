@@ -22,7 +22,7 @@ public class Interpreter {
             case CategoryDecl cd: ExecCategoryDecl(cd, envH); break;
             case ResourceDecl rd: ExecResourceDecl(rd, envV, envH); break;
 
-            case TemplateDecl td: ExecTemplateDecl(td, envTem); break;
+            case TemplateDecl td: ExecTemplateDecl(td, envV, envTem); break;
             case TemplateCall tc: ExecTemplateCall(tc, envV, envH, envTem); break;
 
             case Move m: ExecMove(m, envV); break;
@@ -174,7 +174,7 @@ public class Interpreter {
         resourceRegistry.AddResource(resDecl.Type.Category, resource);
     }
 
-    private static void ExecTemplateDecl(TemplateDecl node, EnvTem envTem) {
+    private static void ExecTemplateDecl(TemplateDecl node, EnvV envV, EnvTem envTem) {
 
         //Temporary list for extracting formal param names
         List<string> parameterNames = [];
@@ -184,17 +184,18 @@ public class Interpreter {
             parameterNames.Add(varDecl.Identifier);                                                
         }
 
-        //Create new entry in Template Table (fTable)
-        envTem.Bind(node.TemplateId, parameterNames, node.TemplateBody); 
+        //Create new entry in Template Table (fTable), envTem[temId -> S, x1..xn, env_V at declarationTime]
+        envTem.Bind(node.TemplateId, parameterNames, node.TemplateBody, envV); 
     }
 
     private static void ExecTemplateCall(TemplateCall node, EnvV envV, EnvH envH, EnvTem envTem) {
-        //New scope for params
-        EnvV templateScope = envV.NewScope();
 
-        (List<string> parameterNames, Stmt body) = envTem.Lookup(node.TemplateId);
+        (List<string> parameterNames, Stmt body, EnvV declarationScope) = envTem.Lookup(node.TemplateId);
+
+        //New scope for binding args to formal params
+        EnvV templateScope = declarationScope.NewScope();
         
-        //Extract from the template declaration node
+        //Extract/ evaluate args from the template declaration node
         for (int i = 0; i < node.ArgList.Count; i++) {
 
             //Evaluate the argument
