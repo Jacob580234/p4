@@ -4,6 +4,16 @@ using RAL.TC;
 namespace RAL.Tests;
 
 /*
+ * Test level: mixed.
+ *   - 'Direct AST construction' sub-sections are unit-flavoured
+ *     (TypeChecker visitor on a hand-built node, no parser).
+ *   - 'Source programs' sub-sections are integration-flavoured
+ *     (parser + typechecker, run together).
+ *
+ * Per Thomsen, this fluidity is normal in compiler projects: a typechecker
+ * visitor needs an AST and recurses through sibling visitors, so its tests
+ * often "have the flavor of integration tests."
+ *
  * Tests for the TypeChecker.
  * Every program tested here must parse correctly;
  * only semantic/type rules are under scrutiny.
@@ -74,6 +84,18 @@ public class TypeCheckerTests
         TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidShadowing);
     }
 
+    [Fact]
+    public void TemplateBody_ReadsOuterScopeVariable_IsAccepted()
+    {
+        // A template body must be able to read variables declared in an
+        // enclosing scope. The body initialises a local Number from an outer
+        // Number, so the type system has to resolve "outer" through the
+        // template-body env into the enclosing env.
+        const string src =
+            "Number outer = 5;\ntemplate t() { Number inner = outer; }";
+        TestHelpers.TypeCheckShouldSucceed(src);
+    }
+
     // ── Positive: direct AST construction ────────────────────────────────────
 
     [Fact]
@@ -108,30 +130,22 @@ public class TypeCheckerTests
     [Fact]
     public void StringAssignedToNumber_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(
-            TestPrograms.InvalidTypeStringAssignedToNumber);
-
-        Assert.Contains(tc.errors,
-            e => e.Contains("number") || e.Contains("string") || e.Contains("Number") || e.Contains("String"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidTypeStringAssignedToNumber, "number", "string");
     }
 
     [Fact]
     public void BoolDivision_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(
-            TestPrograms.InvalidTypeBoolDivision);
-
-        Assert.Contains(tc.errors, e => e.Contains("bool") || e.Contains("Bool"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidTypeBoolDivision, "bool");
     }
 
     [Fact]
     public void IfStatement_WithNonBoolCondition_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(
-            TestPrograms.InvalidTypeIfNonBoolCondition);
-
-        Assert.Contains(tc.errors,
-            e => e.Contains("bool") || e.Contains("Bool") || e.Contains("condition"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidTypeIfNonBoolCondition, "bool", "condition");
     }
 
     // ── Negative: direct AST construction ────────────────────────────────────
@@ -143,7 +157,9 @@ public class TypeCheckerTests
         var node = new ExpStmt(1, new UnaryOperation(1, UnaryOperator.NOT, new NumberV(1, 5)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
-        Assert.Contains(tc.errors, e => e.Contains("number") || e.Contains("Number") || e.Contains("bool"));
+        Assert.Contains(tc.errors, e =>
+            e.Contains("number", StringComparison.OrdinalIgnoreCase) ||
+            e.Contains("bool",   StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -184,7 +200,9 @@ public class TypeCheckerTests
         var node = new ExpStmt(1, new UnaryOperation(1, UnaryOperator.NEG, new BoolV(1, true)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
-        Assert.Contains(tc.errors, e => e.Contains("number") || e.Contains("Number") || e.Contains("bool"));
+        Assert.Contains(tc.errors, e =>
+            e.Contains("number", StringComparison.OrdinalIgnoreCase) ||
+            e.Contains("bool",   StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -194,8 +212,7 @@ public class TypeCheckerTests
         //   1. Parse successfully (syntax is valid).
         //   2. Produce UnaryOperation(NOT, NumberV(5)) in the AST.
         //   3. Be rejected by the typechecker because NOT requires Bool.
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.NotOnNumber);
-        Assert.Contains(tc.errors, e => e.Contains("bool") || e.Contains("Bool") || e.Contains("not"));
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.NotOnNumber, "bool", "not");
     }
 
     // ── Semantic errors: undeclared and duplicate identifiers ─────────────────
@@ -208,7 +225,10 @@ public class TypeCheckerTests
     {
         // Binding the same identifier twice in the same scope must add an error
         // to tc.errors. Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTypeDuplicateVar);
+        // Keyword "already declared" pins the duplicate-binding rule specifically;
+        // a stray error from a different rule wouldn't include that phrase.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTypeDuplicateVar,
+            "already declared");
     }
 
     [Fact]
@@ -216,7 +236,10 @@ public class TypeCheckerTests
     {
         // Looking up an identifier that was never declared must add an error
         // to tc.errors. Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTypeUndeclaredVar);
+        // Keyword "undeclared variable" distinguishes this from "undeclared
+        // category" / "undeclared template" — different rules, same source style.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTypeUndeclaredVar,
+            "undeclared variable");
     }
 
     // ── Positive: DateTime / Duration — source programs ──────────────────────
@@ -340,36 +363,36 @@ public class TypeCheckerTests
     [Fact]
     public void DateTimePlusDateTime_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidDateTimePlusDateTime);
-        Assert.Contains(tc.errors, e => e.Contains("Datetime") || e.Contains("datetime") || e.Contains("incompatible"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidDateTimePlusDateTime, "datetime");
     }
 
     [Fact]
     public void DateTimeMinusDateTime_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidDateTimeMinusDateTime);
-        Assert.Contains(tc.errors, e => e.Contains("Datetime") || e.Contains("incompatible"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidDateTimeMinusDateTime, "datetime");
     }
 
     [Fact]
     public void DurationPlusDateTime_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidDurationPlusDateTime);
-        Assert.Contains(tc.errors, e => e.Contains("incompatible") || e.Contains("duration") || e.Contains("Duration"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidDurationPlusDateTime, "duration", "datetime");
     }
 
     [Fact]
     public void DateTimeAssignedToNumber_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidDateTimeAssignedToNumber);
-        Assert.Contains(tc.errors, e => e.Contains("number") || e.Contains("Number") || e.Contains("Datetime"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidDateTimeAssignedToNumber, "number", "datetime");
     }
 
     [Fact]
     public void DurationAssignedToDateTime_IsRejected()
     {
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidDurationAssignedToDateTime);
-        Assert.Contains(tc.errors, e => e.Contains("duration") || e.Contains("Duration") || e.Contains("Datetime"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidDurationAssignedToDateTime, "duration", "datetime");
     }
 
     [Fact]
@@ -474,17 +497,16 @@ public class TypeCheckerTests
     public void CancelNonReservation_IsRejected()
     {
         // "cancel n;" where n is Number → type error (expected Reservation).
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidCancelNonReservation);
-        Assert.Contains(tc.errors,
-            e => e.Contains("Reservation") || e.Contains("reservation") || e.Contains("Number"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidCancelNonReservation, "reservation", "number");
     }
 
     [Fact]
     public void MoveNonResource_IsRejected()
     {
         // "move n to Room;" where n is Number → error added to tc.errors.
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(TestPrograms.InvalidMoveNonResource);
-        Assert.Contains(tc.errors, e => e.Contains("Resource") || e.Contains("resource"));
+        TestHelpers.TypeCheckShouldReportError(
+            TestPrograms.InvalidMoveNonResource, "resource");
     }
 
     [Fact]
@@ -492,7 +514,10 @@ public class TypeCheckerTests
     {
         // Moving an undeclared resource must add an error to tc.errors.
         // Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidMoveUnknownResource);
+        // Keyword "ghost" is the offending identifier in the test source — its
+        // presence in the error proves the message points at the right node.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidMoveUnknownResource,
+            "ghost");
     }
 
     [Fact]
@@ -524,7 +549,10 @@ public class TypeCheckerTests
     {
         // Accessing a field that does not exist on a declared resource must add an
         // error to tc.errors. Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidResourcePropertyAccess);
+        // Keyword "floors" is the offending property name in the test source — its
+        // presence in the error proves the message points at the right node.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidResourcePropertyAccess,
+            "floors");
     }
 
     [Fact]
@@ -539,10 +567,10 @@ public class TypeCheckerTests
     [Fact]
     public void DuplicateCategory_IsRejected()
     {
-        // Declaring the same category twice → error added to tc.errors.
+        // Declaring the same category twice must surface via tc.errors,
+        // carrying the offending category name and the word "already".
         const string src = "category Room;\ncategory Room;";
-        TypeChecker tc = TestHelpers.TypeCheckShouldFail(src);
-        Assert.Contains(tc.errors, e => e.Contains("Room") || e.Contains("already"));
+        TestHelpers.TypeCheckShouldReportError(src, "Room", "already");
     }
 
     // ── Where-clause semantics ───────────────────────────────────────────────
@@ -567,17 +595,17 @@ public class TypeCheckerTests
     public void ReserveWhereUnknownProperty_IsRejectedWithSemanticError()
     {
         // 'floors' is not a declared property of any Room resource.
-        // Intended: typechecker must add an error to tc.errors.
-        // Current implementation silently returns NumberT for unknown fields — test will FAIL.
+        // The typechecker must add an error to tc.errors rather than silently
+        // returning a type for the unknown field.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownProperty);
     }
 
     [Fact]
     public void ReserveWhereUnknownAlias_IsRejectedWithSemanticError()
     {
-        // Alias 'x' was never introduced in the resource spec.
-        // Intended: typechecker must add an error to tc.errors.
-        // Current implementation throws via envV.Lookup — test will FAIL.
+        // Alias 'x' was never introduced in the resource spec; only 'r' was.
+        // The typechecker must add an error to tc.errors rather than letting
+        // envV.Lookup throw for the unbound alias.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownAlias);
     }
 
@@ -601,7 +629,10 @@ public class TypeCheckerTests
     [Fact]
     public void TemplateCall_WrongArgCount_IsRejectedWithSemanticError()
     {
-        // Template expects 2 arguments but call supplies 1 → tc.errors must be non-empty.
+        // Template expects 2 arguments but call supplies 1.
+        // tc.errors must contain a message naming the template ("booking") and
+        // the word "arguments". The typechecker returns after reporting the
+        // count mismatch so no out-of-range indexing happens in the per-arg loop.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTemplateCallWrongArgCount,
             "booking", "arguments");
     }
@@ -609,10 +640,77 @@ public class TypeCheckerTests
     [Fact]
     public void TemplateCall_UnknownTemplate_IsRejectedWithSemanticError()
     {
-        // Calling an undeclared template must add an error to tc.errors.
-        // Intended behavior: errors.Add, not a thrown exception.
-        // If the current implementation throws, this test will FAIL —
-        // that failure is the signal that envT.Lookup must be fixed.
+        // Calling an undeclared template must surface through tc.errors, not
+        // through an unhandled exception from envT.Lookup.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTemplateCallUnknownTemplate);
+    }
+
+    // ── Reservation combinator semantics (seq / and / or on reservations) ───
+    //
+    // HandleBinary rules:
+    //   AND/OR: (BoolT, BoolT) | (ReservationT, ReservationT) → operand type
+    //   SEQ:    (ReservationT, ReservationT) only
+    // Any other operand pairing must add an error to tc.errors.
+
+    [Fact]
+    public void ReserveSeqReserve_IsAccepted()
+    {
+        // "reserve … seq reserve …" → BinaryOperation(SEQ, Reserve, Reserve).
+        // SEQ on two ReservationT operands must yield ReservationT with no errors.
+        TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidReserveSeqReserve);
+    }
+
+    [Fact]
+    public void ReserveOrReserve_IsAccepted()
+    {
+        // "reserve … or reserve …" — OR overloaded for Reservation operands.
+        TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidReserveOrReserve);
+    }
+
+    [Fact]
+    public void ReserveAndReserve_IsAccepted()
+    {
+        // "reserve … and reserve …" — AND overloaded for Reservation operands.
+        TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidReserveAndReserve);
+    }
+
+    [Fact]
+    public void SeqOnBools_IsRejected()
+    {
+        // "true seq false" — SEQ has no Bool overload, only (Reservation, Reservation).
+        // The typechecker must add an error to tc.errors mentioning the operator
+        // or operand types.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidSeqOnBools, "seq", "bool");
+    }
+
+    // ── Recurring reservation semantics ──────────────────────────────────────
+    //
+    // RecurrenceIsWellTyped accepts:
+    //   (DurationT, DateTimeT) for "every D until DT"
+    //   (DurationT, DurationT) for "every D for D"
+    // Anything else must add an error to tc.errors.
+
+    [Fact]
+    public void RecurringStrictUntilDateTime_IsAccepted()
+    {
+        // "recurring strict every 1 week until 30/06-2026" — (DurationT, DateTimeT).
+        TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidRecurringStrictUntil);
+    }
+
+    [Fact]
+    public void RecurringFlexibleForDuration_IsAccepted()
+    {
+        // "recurring flexible every 1 week for 4 weeks" — (DurationT, DurationT).
+        TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidRecurringFlexibleFor);
+    }
+
+    [Fact]
+    public void RecurringEveryNumber_IsRejected()
+    {
+        // "recurring strict every 5 until 30/06-2026" — 5 has type Number, not
+        // Duration. RecurrenceIsWellTyped must reject the pairing and add an
+        // error mentioning the recurrence or the offending number type.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidRecurringNumberInterval,
+            "recurrence", "number");
     }
 }

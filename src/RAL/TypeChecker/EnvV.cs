@@ -43,24 +43,4 @@ public class EnvV {
         return null;
     }
 
-    // unneeded
-    public bool IsLocal(string var) {
-        return V.ContainsKey(var);
-    }
-
-/// <summary> Traverses up the parent envVs and returns the envV for global scope </summary>
-    public EnvV GetGlobalScope()
-    {
-        //
-        EnvV current = this;
-
-        //Traverse up scopes until global, which has no parrent
-        while (current.parent != null)
-        {
-            current = current.parent;
-        }
-
-        //Return global scope
-        return current;
-    }
 }

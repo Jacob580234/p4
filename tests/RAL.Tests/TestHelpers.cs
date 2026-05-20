@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Text;
 using RAL.AST;
 using RAL.TC;
@@ -107,6 +108,44 @@ static class TestHelpers
     public static Value EvalExpression(Exp exp, Interpreter.EnvV envV, EnvH envH)
     {
         return Interp.EvalExp(exp, envV, envH);
+    }
+
+    // ── Singleton reset for test isolation ──────────────────────────────────
+    //
+    // ResourceRegistry and ReservationRegistry are process-wide singletons.
+    // Without resetting between tests, registrations from one test leak into the
+    // next — forcing every test to invent unique category names (RoomA, RoomB…).
+    // Reflection is used so production code stays untouched.
+    // Each reset asserts the private field exists; a rename in production will
+    // surface as a clear test-helper failure rather than spooky cross-test state.
+
+    public static void ResetRegistries()
+    {
+        ResetResourceRegistry();
+        ResetReservationRegistry();
+    }
+
+    private static void ResetResourceRegistry()
+    {
+        var instance = ResourceRegistry.Instance();
+        FieldInfo field = typeof(ResourceRegistry).GetField(
+            "_registry", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException(
+                "ResourceRegistry._registry field not found — has it been renamed?");
+        var dict = (Dictionary<string, HashSet<ResourceVal>>)field.GetValue(instance)!;
+        dict.Clear();
+        dict.Add("Resource", new HashSet<ResourceVal>());
+    }
+
+    private static void ResetReservationRegistry()
+    {
+        var instance = ReservationRegistry.Instance();
+        FieldInfo field = typeof(ReservationRegistry).GetField(
+            "_registry", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException(
+                "ReservationRegistry._registry field not found — has it been renamed?");
+        var set = (HashSet<ReservationVal>)field.GetValue(instance)!;
+        set.Clear();
     }
 
     // ── AST inspection helpers ──────────────────────────────────────────────

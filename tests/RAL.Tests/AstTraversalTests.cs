@@ -3,20 +3,37 @@ using RAL.AST;
 namespace RAL.Tests;
 
 /*
- * Test-only AST traversal utility.
+ * Test level: integration (parser + AST builder). Per Thomsen, the boundary
+ * between unit and integration is fluid for compilers; asserting on parser
+ * output exercises two phases together, which is the realistic input space
+ * the downstream phases ever see.
  *
- * Only helpers that navigate to deeply nested nodes are retained here.
- * CountNodes, FindAnyReferenceWithPropertyId, and FindResourceDeclWithProperties
- * were removed: they returned counts/booleans and discarded the actual node
- * content, making assertions vague. Tests now navigate the Composite tree
- * directly and assert on specific node fields.
+ * AST-shape tests for the parser's output.
+ *
+ * Tests assert on specific fields of named AST nodes (operators, identifiers,
+ * sub-expression types) rather than on counts or boolean predicates, so a
+ * failure points at the exact node that drifted.
+ *
+ * AstVisitor below provides traversal helpers for nodes that sit deep inside
+ * the Composite tree (Reserve nested in Assignment in ExpStmt, If/Cancel/
+ * TemplateCall whose position depends on the parser's Composite folding).
+ * Tests reach top-level or shallow nodes directly via Composite navigation.
  */
 file static class AstVisitor
 {
     // Returns the where-clause Condition expression from the first Reserve or
     // Availability query in the tree, or null if absent.
-    // Needed because Reserve is nested inside Assignment.Value inside ExpStmt
-    // — direct navigation without a helper would require four Composite steps.
+    //
+    // A Reserve sits deep in the expression tree, not the statement tree.
+    // For a program ending in
+    //   "Reservation res = reserve 1 Room r ... where (r.beds == 2);"
+    // the path from the root looks like:
+    //   Composite → Composite → Composite → ExpStmt
+    //                                       └─ Assignment.Expression
+    //                                          └─ Reserve.Query.Condition
+    // Direct navigation would need six casts and would shift whenever the
+    // surrounding program gains or loses a leading statement. This helper
+    // recurses by node type, so its result is position-independent.
     public static Exp? FindFirstQueryCondition(Stmt root)
         => SearchForQueryCondition(root);
 
@@ -242,10 +259,9 @@ public class AstTraversalTests
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var reserve = Assert.IsType<Reserve>(rhs);
         Assert.Single(reserve.Query.ResourceSpecs);
-        var spec = reserve.Query.ResourceSpecs[0];
-        Assert.Equal("myRoom", spec.Identifier);
-        Assert.Null(spec.Quantity);    // named resource form, not quantity-based
-        Assert.Null(spec.CategoryId);  // named resource form, not category-based
+        // Named-resource form parses to ResourceInstanceSpec (not the category subtypes).
+        var spec = Assert.IsType<ResourceInstanceSpec>(reserve.Query.ResourceSpecs[0]);
+        Assert.Equal("myRoom", spec.ResourceId);
         Assert.IsType<DateTimeV>(reserve.Query.Interval.Start);
         Assert.IsType<DateTimeV>(reserve.Query.Interval.EndMarker);
     }
@@ -261,8 +277,8 @@ public class AstTraversalTests
         var c2 = Assert.IsType<Composite>(c1.Stmt2);
         var avail = Assert.IsType<Availability>(c2.Stmt2);
         Assert.Single(avail.Query.ResourceSpecs);
-        var spec = avail.Query.ResourceSpecs[0];
-        Assert.Equal("myRoom", spec.Identifier);
+        var spec = Assert.IsType<ResourceInstanceSpec>(avail.Query.ResourceSpecs[0]);
+        Assert.Equal("myRoom", spec.ResourceId);
         Assert.IsType<DateTimeV>(avail.Query.Interval.Start);
         Assert.IsType<DateTimeV>(avail.Query.Interval.EndMarker);
         Assert.Null(avail.Query.Condition);
@@ -344,18 +360,9 @@ public class AstTraversalTests
     // ── DateTime / Duration: AST shape ───────────────────────────────────────
 
     [Fact]
-    public void DateTimeLiteral_ParsesAsDateTimeV()
+    public void DateTimeLiteral_ParsesAsDateTimeVWithCorrectDate()
     {
-        // "DateTime dt = 15/03-2026;" → RHS of assignment must be DateTimeV.
-        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeDeclaration);
-        Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
-        Assert.IsType<DateTimeV>(rhs);
-    }
-
-    [Fact]
-    public void DateTimeContainsCorrectDate()
-    {
-        // The parsed DateTimeV must carry March 15, 2026.
+        // "DateTime dt = 15/03-2026;" → RHS must be DateTimeV carrying March 15, 2026.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeDeclaration);
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var dt = Assert.IsType<DateTimeV>(rhs);
@@ -366,7 +373,7 @@ public class AstTraversalTests
     public void DateTimeLiteralWithTime_ParsesAsDateTimeV()
     {
         // "DateTime dt = 15/03-2026 14:00;" — optional time component must be accepted.
-        Stmt root = TestHelpers.ParseShouldSucceed("DateTime dt = 15/03-2026 14:00;");
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeWithTime);
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var dt = Assert.IsType<DateTimeV>(rhs);
         Assert.Equal(14, dt.Value.Hour);
@@ -374,18 +381,9 @@ public class AstTraversalTests
     }
 
     [Fact]
-    public void DurationLiteral_ParsesAsDurationV()
+    public void DurationLiteral_ParsesAsDurationVWithCorrectTimeSpan()
     {
-        // "Duration dur = 2 days;" → RHS of assignment must be DurationV.
-        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDurationDeclaration);
-        Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
-        Assert.IsType<DurationV>(rhs);
-    }
-
-    [Fact]
-    public void DurationContainsCorrectTimeSpan()
-    {
-        // "2 days" → DurationV with TimeSpan of exactly 2 days.
+        // "Duration dur = 2 days;" → RHS must be DurationV with TimeSpan of exactly 2 days.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDurationDeclaration);
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var dur = Assert.IsType<DurationV>(rhs);
@@ -447,5 +445,93 @@ public class AstTraversalTests
         Assert.Equal(2, tc.ArgList!.Count);
         Assert.IsType<NumberV>(tc.ArgList[0]);
         Assert.IsType<StringV>(tc.ArgList[1]);
+    }
+
+    // ── Boolean operator precedence: AND binds tighter than OR ───────────────
+
+    [Fact]
+    public void AndOr_Precedence_AndIsAboveOr()
+    {
+        // "Bool result = true and false or true;" must produce:
+        //   BinaryOperation(OR,
+        //     BinaryOperation(AND, BoolV(true), BoolV(false)),
+        //     BoolV(true))
+        // OR is the outer node because it has lower binding power than AND.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidAndOrPrecedence);
+        Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
+
+        var or = Assert.IsType<BinaryOperation>(rhs);
+        Assert.Equal(BinaryOperator.OR, or.Operator);
+
+        var and = Assert.IsType<BinaryOperation>(or.LeftExpression);
+        Assert.Equal(BinaryOperator.AND, and.Operator);
+        Assert.IsType<BoolV>(and.LeftExpression);
+        Assert.IsType<BoolV>(and.RightExpression);
+
+        Assert.IsType<BoolV>(or.RightExpression);
+    }
+
+    // ── Reservation combinators: AST shape ───────────────────────────────────
+    //
+    // These pin the parser output that the TypeCheckerTests for SEQ/AND/OR
+    // reservation combinators rely on. Without these tests, a parser regression
+    // could hide behind a typechecker that still happens to accept the source.
+
+    [Fact]
+    public void ReserveSeqReserve_IsBinarySeqOfTwoReserves()
+    {
+        // "reserve myRoom from … to … seq reserve myRoom from … to …" must
+        // produce BinaryOperation(SEQ, Reserve, Reserve) as the assignment RHS.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveSeqReserve);
+        Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
+
+        var seq = Assert.IsType<BinaryOperation>(rhs);
+        Assert.Equal(BinaryOperator.SEQ, seq.Operator);
+        Assert.IsType<Reserve>(seq.LeftExpression);
+        Assert.IsType<Reserve>(seq.RightExpression);
+    }
+
+    [Fact]
+    public void ReserveAndReserve_IsBinaryAndOfTwoReserves()
+    {
+        // "reserve … and reserve …" must produce BinaryOperation(AND, Reserve, Reserve).
+        // Distinguishes the reservation-combinator AND from the boolean AND, since
+        // the grammar reuses the same keyword and BinaryOperator.AND for both.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveAndReserve);
+        Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
+
+        var and = Assert.IsType<BinaryOperation>(rhs);
+        Assert.Equal(BinaryOperator.AND, and.Operator);
+        Assert.IsType<Reserve>(and.LeftExpression);
+        Assert.IsType<Reserve>(and.RightExpression);
+    }
+
+    // ── Recurring reservation: AST shape ─────────────────────────────────────
+
+    [Fact]
+    public void RecurringStrictUntil_PopulatesRecurrenceSpec()
+    {
+        // "reserve … recurring strict every 1 week until 30/06-2026" must populate
+        //   Reserve.Query.Recurrence = RecurrenceSpec(
+        //     Mode = STRICT,
+        //     Time = RecurrenceUntil(Every = DurationV(7 days),
+        //                            Until = DateTimeV(30/06/2026)))
+        // Pins the parser output that RecurrenceIsWellTyped walks.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidRecurringStrictUntil);
+        Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
+
+        var reserve = Assert.IsType<Reserve>(rhs);
+        Assert.NotNull(reserve.Query.Recurrence);
+        var recurrence = reserve.Query.Recurrence!;
+        Assert.Equal(RecurrenceMode.STRICT, recurrence.Mode);
+
+        // "until" form parses to RecurrenceUntil (not RecurrenceFor).
+        var until = Assert.IsType<RecurrenceUntil>(recurrence.Time);
+
+        var every = Assert.IsType<DurationV>(until.Every);
+        Assert.Equal(TimeSpan.FromDays(7), every.Value);
+
+        var endDate = Assert.IsType<DateTimeV>(until.EndMarker);
+        Assert.Equal(new DateTime(2026, 6, 30), endDate.Value.Date);
     }
 }
