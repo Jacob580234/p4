@@ -17,7 +17,7 @@ selection:              {_room205}         {r2, r4}                            .
 
 selectionsList:       [ {_room205} ]     [ {r2, r4}, {r2, r3}, {r3, r4} ]      ... 
 
-all_selectionsLists [ [ {_room205} ]  ,  [ {r2, r4}, {r2, r3}, {r3, r4} ]  ,   ...  ]
+selectionsPerSpec [ [ {_room205} ]  ,  [ {r2, r4}, {r2, r3}, {r3, r4} ]  ,   ...  ]
 
 
 --- Cartesian product picks one selection per spec, then Zip attaches each binding 
