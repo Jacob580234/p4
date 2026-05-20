@@ -234,12 +234,12 @@ public class Interpreter {
         IEnumerable<List<ResourceVal>> validCombinations = QueryEvaluator.EvaluateQuery(baseQuery, envV, envH);
         
         if (validCombinations.Any()) {
-            Console.WriteLine($"Available options from {originalStart} to {originalEnd}:");
+            Console.WriteLine($"Availability check succeeded for period {originalStart} to {originalEnd}. Valid combinations found:");
             foreach(List<ResourceVal> combo in validCombinations) {
                 Console.WriteLine("  [" + string.Join(", ", combo.Select(resource => resource.ResourceId)) + "]");
             }
         } else {
-            Console.WriteLine("No available options.");
+            Console.WriteLine("Availability check failed: No resources satisfy the query.\n");
         }
     }
 
