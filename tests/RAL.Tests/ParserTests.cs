@@ -3,107 +3,23 @@ using RAL.AST;
 namespace RAL.Tests;
 
 /*
+ * Test level: unit (parser only — no type or interpreter assertions).
+ *
  * Tests that verify only syntax and basic AST-shape concerns.
  * No type or runtime assertions belong here.
+ *
+ * Scope:
+ *   - The parser must reject obvious syntax errors.
+ *   - The parser must accept the small number of grammar forms that no AST
+ *     or TypeCheck test happens to exercise on the same source.
+ *   - One structural-shape test pins the root layout of a VarDecl + initialiser.
+ *
+ * Tests asserting that "valid program X parses without errors" were removed:
+ *   the AST and TypeCheck tests that consume those same sources already invoke
+ *   ParseShouldSucceed internally, so parser coverage is implicit.
  */
 public class ParserTests
 {
-    // ── Valid programs must produce zero parse errors ────────────────────────
-
-    [Fact]
-    public void ValidArithmetic_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidArithmetic);
-    }
-
-    [Fact]
-    public void ValidBoolLiteral_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidBoolLiteral);
-    }
-
-    [Fact]
-    public void ValidStringDecl_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidStringDecl);
-    }
-
-    [Fact]
-    public void ValidCategory_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidCategory);
-    }
-
-    [Fact]
-    public void ValidResourceDecl_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourceDecl);
-    }
-
-    [Fact]
-    public void ValidResourceWithProperty_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourceWithProperty);
-    }
-
-    [Fact]
-    public void ValidResourceAndTemplate_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourceTemplate);
-    }
-
-    [Fact]
-    public void ValidNestedArithmetic_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidNestedArithmetic);
-    }
-
-    [Fact]
-    public void ValidParenArithmetic_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidParenArithmetic);
-    }
-
-    [Fact]
-    public void ValidIfStatement_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidIfStmt);
-    }
-
-    [Fact]
-    public void ValidCategoryHierarchy_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidCategoryHierarchy);
-    }
-
-    [Fact]
-    public void ValidShadowing_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidShadowing);
-    }
-
-    [Fact]
-    public void EmptyProgram_ParsesSuccessfully()
-    {
-        // An empty file is a valid RAL program (zero statements).
-        TestHelpers.ParseShouldSucceed("");
-    }
-
-    // ── Type-error programs must still parse successfully ───────────────────
-    // (These have valid syntax; the error belongs to the typechecker.)
-
-    [Fact]
-    public void StringToNumber_IsSyntacticallyValid()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidTypeStringAssignedToNumber);
-    }
-
-    [Fact]
-    public void BoolDivision_IsSyntacticallyValid()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidTypeBoolDivision);
-    }
-
     // ── Invalid syntax must produce parse errors ─────────────────────────────
 
     [Fact]
@@ -124,235 +40,247 @@ public class ParserTests
         TestHelpers.ParseShouldFail(TestPrograms.InvalidSyntaxUnclosedParen);
     }
 
+    // ── Empty input must parse ───────────────────────────────────────────────
+
+    [Fact]
+    public void EmptyProgram_ParsesSuccessfully()
+    {
+        // An empty file is a valid RAL program (zero statements).
+        TestHelpers.ParseShouldSucceed("");
+    }
+
     // ── Root AST node shape ──────────────────────────────────────────────────
 
     [Fact]
-    public void SingleDeclaration_RootIsComposite()
+    public void NumberDecl_RootIsCompositeOfVarDeclAndAssignmentExpStmt()
     {
-        // "Number x = 42;" → VarDecl + initialiser → Composite
-        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidNumberDecl);
-        Assert.IsType<Composite>(root);
-    }
-
-    [Fact]
-    public void VarDeclWithoutInit_FirstChildIsVarDecl()
-    {
-        // "Number x = 42;" → Composite(VarDecl, ExpStmt(Assignment))
+        // "Number x = 42;" → Composite(VarDecl, ExpStmt(Assignment)).
+        // One test pins the full shape; previously split across three.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidNumberDecl);
         var composite = Assert.IsType<Composite>(root);
         Assert.IsType<VarDecl>(composite.Stmt1);
-    }
-
-    [Fact]
-    public void VarDeclInit_SecondChildIsExpStmtWithAssignment()
-    {
-        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidNumberDecl);
-        var composite = Assert.IsType<Composite>(root);
         var expStmt = Assert.IsType<ExpStmt>(composite.Stmt2);
         Assert.IsType<Assignment>(expStmt.Expression);
     }
 
-    [Fact]
-    public void NotKeyword_IsSyntacticallyAccepted()
-    {
-        // "not" is a recognised keyword; the syntax is valid and must parse without errors.
-        Parser parser = TestHelpers.ParseProgram(TestPrograms.NotFalse);
-        Assert.Equal(0, parser.errors.count);
-    }
-
-    [Fact]
-    public void UnaryMinus_ShouldBeSyntacticallyValid()
-    {
-        // "Number x = -5;" is valid syntax and must parse without errors.
-        Parser parser = TestHelpers.ParseProgram(TestPrograms.UnaryMinusFive);
-        Assert.Equal(0, parser.errors.count);
-    }
-
-    // ── DateTime / Duration: parser accepts valid syntax ─────────────────────
-
-    [Fact]
-    public void ValidDateTimeDeclaration_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeDeclaration);
-    }
+    // ── Grammar forms not exercised by any AST/TypeCheck test ────────────────
 
     [Fact]
     public void ValidDateTimeWithTime_ParsesSuccessfully()
     {
         // Date + optional time component — both parts must be recognised by the scanner.
-        TestHelpers.ParseShouldSucceed("DateTime dt = 15/03-2026 14:00;");
-    }
-
-    [Fact]
-    public void ValidDurationDeclaration_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDurationDeclaration);
-    }
-
-    [Fact]
-    public void ValidDuration_WeekUnit_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed("Duration dur = 1 week;");
-    }
-
-    [Fact]
-    public void ValidDuration_HourUnit_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed("Duration dur = 3 hours;");
-    }
-
-    [Fact]
-    public void ValidDuration_MinuteUnit_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed("Duration dur = 30 minutes;");
+        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeWithTime);
     }
 
     [Fact]
     public void ValidDuration_CompoundUnit_ParsesSuccessfully()
     {
         // Combined units: 1 week 2 days 3 hours 30 minutes.
-        TestHelpers.ParseShouldSucceed("Duration dur = 1 week 2 days 3 hours 30 minutes;");
-    }
-
-    [Fact]
-    public void ValidDateTimePlusDuration_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimePlusDuration);
-    }
-
-    [Fact]
-    public void ValidDateTimeComparison_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeComparison);
-    }
-
-    [Fact]
-    public void ValidDurationComparison_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDurationComparison);
-    }
-
-    [Fact]
-    public void InvalidDateTimePlusDateTime_IsSyntacticallyValid()
-    {
-        // Syntax is fine; the type error is caught by the typechecker, not the parser.
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidDateTimePlusDateTime);
-    }
-
-    // ── Core RAL features: parser accepts valid syntax ────────────────────────
-
-    [Fact]
-    public void ValidMoveStatement_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidMoveResourceToCategory);
-    }
-
-    [Fact]
-    public void ValidReserveStatement_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveStatement);
-    }
-
-    [Fact]
-    public void ValidAvailabilityQuery_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidAvailabilityQuery);
-    }
-
-    [Fact]
-    public void ValidCancelReservation_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidCancelReservation);
-    }
-
-    [Fact]
-    public void ValidRescheduleReservation_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidRescheduleReservation);
-    }
-
-    [Fact]
-    public void ValidPropertyAccess_ParsesSuccessfully()
-    {
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourcePropertyAccess);
+        TestHelpers.ParseShouldSucceed(TestPrograms.ValidDurationCompound);
     }
 
     [Fact]
     public void ReserveWithForDuration_ParsesSuccessfully()
     {
         // "for Duration" alternative in the Time non-terminal.
-        TestHelpers.ParseShouldSucceed(
-            "category Room;\nRoom myRoom {}\nReservation res = reserve myRoom from 15/03-2026 for 2 days;");
+        TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveForDuration);
     }
 
     [Fact]
     public void ReserveWithQuantityAndCategory_ParsesSuccessfully()
     {
-        // "a*rc id" resource-spec form: "2 Room r".
-        TestHelpers.ParseShouldSucceed(
-            "category Room;\nRoom myRoom {}\nReservation res = reserve 2 Room from 15/03-2026 to 16/03-2026;");
+        // "a*rc" resource-spec form: "2 Room", no alias.
+        TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveQuantityCategory);
     }
 
     [Fact]
     public void ReserveWithWhereClause_ParsesSuccessfully()
     {
-        // Optional "where (Exp)" predicate in a query.
-        TestHelpers.ParseShouldSucceed(
-            "category Room;\nRoom myRoom { Number beds = 2; }\n" +
-            "Reservation res = reserve 1 Room r from 15/03-2026 to 16/03-2026 where (r.beds == 2);");
-    }
-
-    [Fact]
-    public void CancelNonReservation_IsSyntacticallyValid()
-    {
-        // Syntax is correct; the type error belongs to the typechecker.
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidCancelNonReservation);
-    }
-
-    // ── Where clauses: parser accepts valid syntax ────────────────────────────
-    // All four programs are syntactically valid; semantic errors are for the typechecker.
-
-    [Fact]
-    public void ValidReserveWherePredicate_ParsesSuccessfully()
-    {
+        // Optional "where (Exp)" predicate on a "1 Room r" spec.
         TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveWherePredicate);
     }
 
+    // ── Malformed domain-specific syntax ─────────────────────────────────────
+
     [Fact]
-    public void ReserveWhereNonBoolPredicate_IsSyntacticallyValid()
+    public void ReserveMissingFrom_IsRejectedByParser()
     {
-        // Predicate type is a semantic concern; the parser must accept any expression.
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidReserveWhereNonBoolPredicate);
+        // "reserve myRoom 15/03-2026 to 16/03-2026" — Time non-terminal requires
+        // the "from" keyword before the start expression. Without it the parser
+        // tries to read another identifier where a dateLit appears, and errors.
+        TestHelpers.ParseShouldFail(TestPrograms.InvalidSyntaxReserveMissingFrom);
     }
 
     [Fact]
-    public void ReserveWhereUnknownProperty_IsSyntacticallyValid()
+    public void CheckMissingToOrFor_IsRejectedByParser()
     {
-        // Unknown property names are semantic errors; the parser must accept the syntax.
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidReserveWhereUnknownProperty);
+        // "check myRoom from 15/03-2026;" — after the start DateTime the
+        // Time non-terminal requires either "to DateTime" or "for Duration".
+        // Hitting ";" instead must produce a parse error.
+        TestHelpers.ParseShouldFail(TestPrograms.InvalidSyntaxCheckMissingToOrFor);
+    }
+
+    // ── Round-trip: parse → pretty-print → reparse ───────────────────────────
+    //
+    // Front-end integration test recommended by Thomsen (TestComp.html):
+    // "If the pretty printed program looks similar to the input program,
+    // there is a high probability that the front end is implemented
+    // correctly."
+    //
+    // The flow inside AssertRoundTripStable is two parses and two prints:
+    //   1. Parse the source string from TestPrograms          → AST_1
+    //   2. Pretty-print AST_1 via AstPrettyPrinter            → text_1
+    //   3. Re-parse text_1 (must succeed)                     → AST_2
+    //   4. Pretty-print AST_2                                 → text_2
+    //   5. Assert text_1 == text_2
+    //
+    // The original source is the entry point only. The assertion does NOT
+    // compare against it, because the printer normalises information the
+    // AST has lost (e.g. the source "1 week" becomes a TimeSpan in the AST,
+    // and the printer emits it as "7 days"). What we DO assert is that the
+    // printer is unchanged on parser output: once the source has been
+    // normalised to text_1, a second round trip must produce the same text.
+    //
+    // Failure modes and what they mean:
+    //   - Step 3 fails: the printer produced text the grammar rejects,
+    //     i.e. a printer bug or a grammar form the printer forgot.
+    //   - Step 5 fails: either the parser produced a different AST shape on
+    //     the second pass (front-end shape drift) or the printer is not
+    //     deterministic for the same AST.
+
+    [Fact]
+    public void RoundTrip_SimpleDecl_IsStable()
+    {
+        // "Number x = 42;" is the most common parser-output pattern:
+        // Composite(VarDecl, ExpStmt(Assignment)). The printer fuses these
+        // two nodes back into the surface form "Type id = expr;". The round
+        // trip confirms the fusion is reversible: fuse, reparse, refuse,
+        // and the text is identical.
+        AssertRoundTripStable(TestPrograms.ValidNumberDecl);
     }
 
     [Fact]
-    public void ReserveWhereUnknownAlias_IsSyntacticallyValid()
+    public void RoundTrip_ArithmeticPrecedence_IsStable()
     {
-        // Unknown aliases are semantic errors; the parser must accept the identifier.
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidReserveWhereUnknownAlias);
-    }
-
-    // ── Template calls: parser accepts valid syntax ────────────────────────────
-
-    [Fact]
-    public void ValidTemplateCall_ParsesSuccessfully()
-    {
-        // "template booking(...) {} use booking(2, \"meeting\");" — must parse without errors.
-        TestHelpers.ParseShouldSucceed(TestPrograms.ValidTemplateCall);
+        // "Number x = 2 + 3 * 4;" parses to ADD(2, MUL(3, 4)) because MUL
+        // binds tighter than ADD. The printer wraps every BinaryOperation in
+        // explicit parens — "(2 + (3 * 4))" — so the operator nesting is
+        // unambiguous on reparse and does not depend on the grammar's
+        // binding-power rules. Failure here points at either a parser
+        // precedence regression or a printer paren-placement bug.
+        AssertRoundTripStable(TestPrograms.ValidNestedArithmetic);
     }
 
     [Fact]
-    public void UnknownTemplateCall_IsSyntacticallyValid()
+    public void RoundTrip_ReserveStatement_IsStable()
     {
-        // "use missingTemplate(2);" is syntactically correct.
-        // Unknown template names are semantic/typechecker errors, not parser errors.
-        TestHelpers.ParseShouldSucceed(TestPrograms.InvalidTemplateCallUnknownTemplate);
+        // A full domain-specific program: a CategoryDecl, a ResourceDecl
+        // with an empty body, and a Reserve expression carrying a named
+        // resource and a date interval. Exercises the RAL-specific grammar
+        // pieces (Reserve / QueryData / TimeSpec / ResourceSpec / empty
+        // ResourceDecl) that the two generic-expression round-trips above
+        // do not touch.
+        AssertRoundTripStable(TestPrograms.ValidReserveStatement);
+    }
+
+    // ── Extended round-trip coverage ─────────────────────────────────────────
+    //
+    // Each test below pins one further grammar production that the three
+    // round-trips above do not reach. The tests intentionally assert the
+    // strict contract (parse → print → reparse → print must be a byte-stable
+    // fixed point). A failure here is a real signal — typically that the
+    // printer is non-deterministic on a given AST shape, or that printer and
+    // parser shapes have drifted apart for that production. The right
+    // response to a failure is to fix the underlying drift, not to weaken
+    // the assertion.
+
+    [Fact]
+    public void RoundTrip_CategoryHierarchy_IsStable()
+    {
+        // Exercises CategoryDecl with an "is a" parent reference, which the
+        // simpler ValidCategory program does not cover.
+        AssertRoundTripStable(TestPrograms.ValidCategoryHierarchy);
+    }
+
+    [Fact]
+    public void RoundTrip_ResourceWithProperty_IsStable()
+    {
+        // ResourceDecl with a non-empty property list. The printer must emit
+        // the fused "Type id = expr;" form inside the braces and the parser
+        // must accept it as a property declaration.
+        AssertRoundTripStable(TestPrograms.ValidResourceWithProperty);
+    }
+
+    [Fact]
+    public void RoundTrip_ReserveForDuration_IsStable()
+    {
+        // "from DateTime for Duration" — the alternative TimeSpec form that
+        // forces the printer's endKw branch to pick "for" instead of "to".
+        AssertRoundTripStable(TestPrograms.ValidReserveForDuration);
+    }
+
+    [Fact]
+    public void RoundTrip_ReserveQuantityCategory_IsStable()
+    {
+        // CategorySpec without an alias ("2 Room"), distinct from the named
+        // ResourceInstanceSpec form covered by ValidReserveStatement.
+        AssertRoundTripStable(TestPrograms.ValidReserveQuantityCategory);
+    }
+
+    [Fact]
+    public void RoundTrip_ReserveWherePredicate_IsStable()
+    {
+        // where (Exp) clause combined with CategorySpecWithBinding ("1 Room r").
+        // Exercises both the where-clause printer branch and the alias-carrying
+        // resource-spec branch.
+        AssertRoundTripStable(TestPrograms.ValidReserveWherePredicate);
+    }
+
+    [Fact]
+    public void RoundTrip_RecurringStrictUntil_IsStable()
+    {
+        // Recurrence with STRICT mode and the "until DateTime" interval form.
+        // Forces the printer's recurrence branch with endKw == "until".
+        AssertRoundTripStable(TestPrograms.ValidRecurringStrictUntil);
+    }
+
+    [Fact]
+    public void RoundTrip_RecurringFlexibleFor_IsStable()
+    {
+        // Recurrence with FLEXIBLE mode and the "for Duration" interval form.
+        // Complementary to the STRICT/until case above, ensuring both
+        // RecurrenceMode values and both RecurrenceInterval subtypes round-trip.
+        AssertRoundTripStable(TestPrograms.ValidRecurringFlexibleFor);
+    }
+
+    [Fact]
+    public void RoundTrip_IfStatement_IsStable()
+    {
+        // If statement with both then- and else-branches and a Bool condition
+        // in scope. Exercises the printer's If branch and the parser's
+        // mandatory braces around branch bodies.
+        AssertRoundTripStable(TestPrograms.ValidIfStmt);
+    }
+
+    // Implements the parse → print → reparse → print → equal-check flow
+    // described in the region header above. The numbered steps in the body
+    // map one-to-one onto steps 1–5 in that comment.
+    private static void AssertRoundTripStable(string source)
+    {
+        // 1. Parse the source string from TestPrograms.cs into the first AST.
+        Stmt parsed1 = TestHelpers.ParseShouldSucceed(source);
+        // 2. Pretty-print that AST into canonical RAL surface text.
+        string text1 = AstPrettyPrinter.Print(parsed1);
+
+        // 3. Re-parse the printed text. ParseShouldSucceed asserts errors.count
+        //    == 0, so this step fails the test if the printer produced text
+        //    the grammar cannot accept.
+        Stmt parsed2 = TestHelpers.ParseShouldSucceed(text1);
+        // 4. Pretty-print the second AST.
+        string text2 = AstPrettyPrinter.Print(parsed2);
+
+        // 5. The two printed texts must be byte-identical. If they differ,
+        //    the front-end pipeline is not stable under round-trip.
+        Assert.Equal(text1, text2);
     }
 }
