@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RAL": {
+      "commandName": "Project",    
+      "commandLineArgs": "../test.ral" 
+    }
+  }
+}

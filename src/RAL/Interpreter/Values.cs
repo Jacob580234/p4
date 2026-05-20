@@ -59,7 +59,7 @@ public record ResourceVal(string ResourceId, string CategoryId, Dictionary<strin
             ", " , 
             Properties.Select(p => $"{p.Key}: {p.Value}") );
 
-        return $"{CategoryId}({ResourceId}) [{props}]";
+        return $"{CategoryId} '{ResourceId}' [{props}] ";
     }
 }
 
@@ -72,7 +72,7 @@ public record ReservationAtomVal( List<ResourceVal> Resources, DateTimeVal Start
     public override string ToString() {
         string resources = string.Join("\n    - ", Resources.Select(r => r.ToString()));
 
-        return $"Time: {Start} -> {End}\n  Resources: - {resources}";
+        return $"    Time: {Start} -> {End}\n    Resources:\n    - {resources}";
     }
 }
 
@@ -91,7 +91,7 @@ public record ReservationVal( List<ReservationAtomVal> Reservations) : Value {
 
         return string.Join(
             "\n\n",
-            Reservations.Select((reservationAtom, i) => $"Reservation Atom #{i + 1}\n{reservationAtom}")
+            Reservations.Select((reservationAtom, i) => $"  Reservation Atom #{i + 1}\n{reservationAtom}")
         );
     }
 }

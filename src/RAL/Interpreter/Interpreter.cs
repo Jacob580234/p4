@@ -29,7 +29,7 @@ public class Interpreter {
 
             case Cancel c: ExecCancel(c, envV, envH); break;
 
-            case ExpStmt s: Console.WriteLine(EvalExp(s.Expression, envV, envH)); break;
+            case ExpStmt s: EvalExp(s.Expression, envV, envH); break;
 
             case Availability av: HandleAvailability(av, envV, envH); break;
             default: throw new Exception($"Unknown Statement: " + stmt.ToString());
@@ -100,8 +100,7 @@ public class Interpreter {
             DateTimeT => new DateTimeVal(DateTime.Now),
             DurationT => new DurationVal(new TimeSpan(0,0,0,0)),
 
-            //Empty list indicates rejected reservation attempt
-            ReservationT => new ReservationVal(new List<ReservationAtomVal>()),
+            ReservationT => FailedReservation(),
 
             _ => throw new Exception("VarDecl node with unsupported type")
         };
@@ -159,9 +158,9 @@ public class Interpreter {
 
         //From the newly bound variables in propertyScope, build the property list, by lookups in said scope of collected ids
         Dictionary<string, Value> propertyList = declaredPropertyIds.ToDictionary(
-            //Key selector function:        From the elements (ids) of declaredIds HashSet, set it as the key of dictonary entry.
+            //Key selector function: From the elements (ids) of declaredIds HashSet, set it as the key of dictonary entry.
             id => id, 
-            //Value selector function:      Value of new dictionary entry is set to the returned Value from a lookup in the propertyScope.
+            //Value selector function: Value of new dictionary entry is set to the returned Value from a lookup in the propertyScope.
             id => propertyScope.Lookup(id) 
         );
 
@@ -205,7 +204,7 @@ public class Interpreter {
             templateScope.Bind(parameterNames[i], evaluatedArg);                                                
         }
 
-        //Execute body
+        //Execute body with the local scope
         ExecStmt(body, templateScope, envH, envTem);        
     }
 
@@ -233,15 +232,15 @@ public class Interpreter {
         (DateTime originalStart, DateTime originalEnd, TimeSpan duration) = ComputeTime(av.Query.Interval, envV, envH);
         ResolvedQuery baseQuery = new ResolvedQuery(av.Query.ResourceSpecs, originalStart, originalEnd, av.Query.Condition);
         
-        var validCombinations = QueryEvaluator.EvaluateQuery(baseQuery, envV, envH);
+        IEnumerable<List<ResourceVal>> validCombinations = QueryEvaluator.EvaluateQuery(baseQuery, envV, envH);
         
         if (validCombinations.Any()) {
             Console.WriteLine($"Availability check succeeded for period {originalStart} to {originalEnd}. Valid combinations found:");
-            foreach(var combo in validCombinations) {
-                Console.WriteLine("  [" + string.Join(", ", combo.Select(r => r.ResourceId)) + "]");
+            foreach(List<ResourceVal> combo in validCombinations) {
+                Console.WriteLine("  [" + string.Join(", ", combo.Select(resource => resource.ResourceId)) + "]");
             }
         } else {
-            Console.WriteLine("Availability check failed: No resources satisfy the query.");
+            Console.WriteLine("Availability check failed: No resources satisfy the query.\n");
         }
     }
 
@@ -260,8 +259,8 @@ public class Interpreter {
             
             if (resource.Properties.TryGetValue(r.PropertyId, out Value? val)) {
                 return val;
-            } else {
-                throw new MissingPropertyException($"Property '{r.PropertyId}' not found on resource '{resource.ResourceId}'.");
+            } else { // used to handle constraints with local variables where property is not present
+                throw new MissingPropertyException("");
             }
         }        
     }
@@ -346,7 +345,7 @@ public class Interpreter {
             return newReservation;
         }
 
-        return new ReservationVal(new List<ReservationAtomVal>()); // Failed
+        return FailedReservation(); // Failed
     }
 
     /// <summary> Returns a tupple of start DateTime and end DateTime in unwrapped, c# types </summary>
@@ -450,8 +449,9 @@ public class Interpreter {
 
         //Combine reservations to a composite, in the original - wether either were empty
         leftReservation.Reservations.AddRange(rightReservation.Reservations);
-        reservationRegistry.CancelReservation(rightReservation);
-        return leftReservation;//stub for compiler errors  
+        reservationRegistry.CancelReservation(rightReservation); // Cancel lone reservations such that no duplicates are present
+
+        return leftReservation; 
     }
 
     private static Value HandleReschedule(Reschedule node, EnvV envV, EnvH envH) {
@@ -460,7 +460,7 @@ public class Interpreter {
         ReservationVal reservation = (ReservationVal) EvalExp(node.Reservation, envV, envH);
 
         //Not possible for composite reservations
-        if (reservation.IsComposite() || reservation.Failed()) return new ReservationVal([]); //Indicates failure
+        if (reservation.IsComposite() || reservation.Failed()) return FailedReservation(); //Indicates failure
 
         //Simple reservations, extract it
         ReservationAtomVal atomicReservation = reservation.Reservations[0];
@@ -470,7 +470,7 @@ public class Interpreter {
 
         //If any of the resources are unavailable, indicate failure each resource's availability in newly requested time
         if (atomicReservation.Resources.Any(resource => !reservationRegistry.IsAvailable(resource, requestedStart, requestedEnd)))
-            return new ReservationVal([]); //Indicates failure
+            return FailedReservation(); //Indicates failure
         
         //Update time properties of the existing reservation
         atomicReservation.Start = new DateTimeVal(requestedStart);
@@ -624,7 +624,7 @@ public class Interpreter {
 
             // Reserve and seq
 
-            _ => throw new Exception($"Line {exp.LineNumber}: Invalid binary operation: {left} {exp.Operator} {right}\n.") // Should never happen
+            _ => throw new Exception($"Line {exp.LineNumber}: Invalid binary operation: {left} {exp.Operator} {right}.")
         };
     }
 
@@ -640,7 +640,7 @@ public class Interpreter {
             UnaryOperator.NEG when value is NumberVal n
                 => new NumberVal(-n.Value),
 
-            _ => throw new Exception($"Line {exp.LineNumber}: Invalid unary operation.") // Should never happen
+            _ => throw new Exception($"Line {exp.LineNumber}: Invalid unary operation.")
         };
     }
 
@@ -663,5 +663,9 @@ public class Interpreter {
 
     public class MissingPropertyException : Exception {
         public MissingPropertyException(string message) : base(message) {}
+    }
+
+    public static ReservationVal FailedReservation() {
+        return new ReservationVal(new List<ReservationAtomVal>());
     }
 }

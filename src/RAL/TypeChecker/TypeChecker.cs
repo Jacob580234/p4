@@ -35,7 +35,7 @@ class TypeChecker {
 
             case Availability av: QueryIsWellTyped(av.Query, envV, envC, envH, envT, envR, envCPT); break; // QueryIsWellTyped adds errors itself, no need to check in case as well
             
-            default: throw new Exception($"Line {stmt.LineNumber}: Unknown statement."); // should never happen
+            default: throw new Exception($"Line {stmt.LineNumber}: Unknown statement.");
         }
     }
 
@@ -61,7 +61,7 @@ class TypeChecker {
             UnaryOperation u => HandleUnary(u, envV, envC, envH, envT, envR, envCPT),
 
 
-            _ => throw new Exception($"Line {exp.LineNumber}: Unknown expression.") // should never happen
+            _ => throw new Exception($"Line {exp.LineNumber}: Unknown expression.")
         };
 
 /* ________________________Statement Handlers______________________________*/
@@ -99,7 +99,8 @@ class TypeChecker {
 
         //Handle relation to parent - 'is a id' part of [category id is a id]. If no relation is explicitly provided, parent is 'Resource'
         if(cd.ParentId == null) {
-            envH.EstablishRelation(new ResourceT(cd.CategoryId), new ResourceT("Resource"));
+            bool established = envH.EstablishRelation(new ResourceT(cd.CategoryId), new ResourceT("Resource"));
+            if(!established) errors.Add($"Line {cd.LineNumber}: Category '{cd.CategoryId}' has already been declared.");
         } else { 
             
             //Ensure parent is in the set of categories
@@ -107,7 +108,8 @@ class TypeChecker {
                 errors.Add($"Line {cd.LineNumber}: Use of undeclared category '{cd.ParentId}'.");
 
             //Delegate establishment of parent relation to hierarchy environment. Guards cyclic relations
-            envH.EstablishRelation(new ResourceT(cd.CategoryId), new ResourceT(cd.ParentId)); 
+            bool established = envH.EstablishRelation(new ResourceT(cd.CategoryId), new ResourceT(cd.ParentId)); 
+            if(!established) errors.Add($"Line {cd.LineNumber}: Category '{cd.CategoryId}' has already been declared.");
         }
     }
 
@@ -264,6 +266,7 @@ class TypeChecker {
             errors.Add($"Line {move.LineNumber}: Use of undeclared variable '{move.ResourceId}'.");
             return;
         }
+
         if(type is ResourceT) {
 
             //Ensure id of category maps to a category
@@ -273,7 +276,7 @@ class TypeChecker {
             //Before moving check for conflicts between the resource's property types and those of the category
             Dictionary<string, TypeT> propertyTypeMap = envR.GetPropertyTypeMap(move.ResourceId);
             
-            foreach(var property in propertyTypeMap ) {
+            foreach(KeyValuePair<string, TypeT> property in propertyTypeMap ) {
                 
                 CheckCategoryPropertyConflict(move.Type, property.Key, property.Value, envH, envCPT);
             }
@@ -589,7 +592,7 @@ class TypeChecker {
                 (ReservationT, ReservationT) => new ReservationT(),
                 _ => Error($"Line {exp.LeftExpression.LineNumber}: Operand types '{left}' and '{right}' incompatible for operator '{operatorAsString}'.")},
 
-            _ => throw new Exception($"Line {exp.LeftExpression.LineNumber}: Unknown binary operator.") // should never happen      
+            _ => throw new Exception($"Line {exp.LeftExpression.LineNumber}: Unknown binary operator.") 
         };
     }
 
@@ -606,7 +609,7 @@ class TypeChecker {
             UnaryOperator.NEG when (operandType is NumberT) => new NumberT(),
             UnaryOperator.NEG => Error($"Line {exp.LineNumber}: Operator '{operatorAsString}' expected 'Number' got '{operandType}'."),
             
-            _ => throw new Exception($"Line {exp.LineNumber}: Unknown unary operator.") // should never happen
+            _ => throw new Exception($"Line {exp.LineNumber}: Unknown unary operator.")
         };
     }
 

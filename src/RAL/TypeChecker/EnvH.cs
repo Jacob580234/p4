@@ -24,10 +24,13 @@ public class EnvH {
 
 
 
-    public void EstablishRelation(ResourceT childCat, ResourceT parentCat) {
+    public bool EstablishRelation(ResourceT childCat, ResourceT parentCat) {
         // needs to be exception, otherwise lookups may enter infinite loop
-        if(childCat == parentCat) throw new Exception("A category may not relate to itself"); 
-        parentCatRelations.Add(childCat, parentCat);
+        if(childCat == parentCat) 
+            throw new Exception("A category may not relate to itself"); 
+        if(parentCatRelations.ContainsKey(childCat)) return false;
+            parentCatRelations.Add(childCat, parentCat);
+        return true;
     } 
 
 /// <summary> Under valid input, guarentees parentCat. Nullable due to 'Resource' having no parentCat. Otherwise, throws exception <summary>
