@@ -91,9 +91,7 @@ public class TypeCheckerTests
         // enclosing scope. The body initialises a local Number from an outer
         // Number, so the type system has to resolve "outer" through the
         // template-body env into the enclosing env.
-        const string src =
-            "Number outer = 5;\ntemplate t() { Number inner = outer; }";
-        TestHelpers.TypeCheckShouldSucceed(src);
+        TestHelpers.TypeCheckShouldSucceed(TestPrograms.ValidTemplateBodyReadsOuter);
     }
 
     // ── Positive: direct AST construction ────────────────────────────────────
@@ -154,22 +152,34 @@ public class TypeCheckerTests
     public void UnaryNot_OnNumber_IsRejected()
     {
         // UnaryOperation(NOT, NumberV(5)) → typechecker must add an error.
+        // The NOT-on-non-Bool rule emits a message of the form
+        //   "Operator 'not' expected 'Bool' got 'Number'."
+        // Each of the three identifying phrases is asserted separately so a
+        // failure points at exactly which token drifted: if the production
+        // wording changes "expected" to "wanted", only that one Assert.Contains
+        // line fails and the stack trace names it.
         var node = new ExpStmt(1, new UnaryOperation(1, UnaryOperator.NOT, new NumberV(1, 5)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
-        Assert.Contains(tc.errors, e =>
-            e.Contains("number", StringComparison.OrdinalIgnoreCase) ||
-            e.Contains("bool",   StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("Operator 'not'",   StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("expected 'Bool'",  StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("got 'Number'",     StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public void BinaryDiv_BoolOperands_IsRejected()
     {
         // BinaryOperation(DIV, BoolV, BoolV) → type error.
+        // Binary operand-type errors take the form
+        //   "Operand types 'L' and 'R' incompatible for operator 'OP'."
+        // Operand-pair phrase and operator are asserted separately; a stray
+        // production change to either component fails its own assertion only.
         var node = new ExpStmt(1,
             new BinaryOperation(1, new BoolV(1, true), BinaryOperator.DIV, new BoolV(1, false)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
+        Assert.Contains(tc.errors, e => e.Contains("Operand types 'Bool' and 'Bool'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("operator '/'",                    StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -180,6 +190,8 @@ public class TypeCheckerTests
             new BinaryOperation(1, new StringV(1, "hello"), BinaryOperator.ADD, new NumberV(1, 3)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
+        Assert.Contains(tc.errors, e => e.Contains("Operand types 'String' and 'Number'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("operator '+'",                        StringComparison.OrdinalIgnoreCase));
     }
 
     // ── Unary NEG: TypeChecker accepts/rejects correctly (direct AST) ─────────
@@ -197,12 +209,15 @@ public class TypeCheckerTests
     public void UnaryNeg_OnBool_IsRejected_DirectAst()
     {
         // UnaryOperation(NEG, BoolV(true)) → type error (NEG requires Number).
+        // The NEG-on-non-Number rule emits a message of the form
+        //   "Operator '-' expected 'Number' got 'Bool'."
+        // Each phrase asserted separately for focused failure diagnostics.
         var node = new ExpStmt(1, new UnaryOperation(1, UnaryOperator.NEG, new BoolV(1, true)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
-        Assert.Contains(tc.errors, e =>
-            e.Contains("number", StringComparison.OrdinalIgnoreCase) ||
-            e.Contains("bool",   StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("Operator '-'",      StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("expected 'Number'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("got 'Bool'",        StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -398,47 +413,65 @@ public class TypeCheckerTests
     [Fact]
     public void BinaryAdd_DateTimePlusDateTime_IsRejected_DirectAst()
     {
+        // ADD(DateTimeT, DateTimeT) has no overload — the rule emits
+        //   "Operand types 'Datetime' and 'Datetime' incompatible for operator '+'."
         var node = new ExpStmt(1, new BinaryOperation(1,
             new DateTimeV(1, new DateTime(2026, 3, 15)),
             BinaryOperator.ADD,
             new DateTimeV(1, new DateTime(2026, 3, 16))));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
+        Assert.Contains(tc.errors, e => e.Contains("Operand types 'Datetime' and 'Datetime'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("operator '+'",                            StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public void BinaryAdd_DurationPlusDateTime_IsRejected_DirectAst()
     {
+        // Operand order matters: ADD(DurationT, DateTimeT) is rejected even
+        // though (DateTimeT, DurationT) is accepted. Pinning both operand
+        // types in source order proves the rule rejected the wrong-direction
+        // pairing specifically.
         var node = new ExpStmt(1, new BinaryOperation(1,
             new DurationV(1, TimeSpan.FromDays(1)),
             BinaryOperator.ADD,
             new DateTimeV(1, new DateTime(2026, 3, 15))));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
+        Assert.Contains(tc.errors, e => e.Contains("Operand types 'Duration' and 'Datetime'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("operator '+'",                            StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public void BinaryLt_DateTimeAndNumber_IsRejected_DirectAst()
     {
-        // DateTime compared with Number → type error.
+        // DateTime compared with Number → type error. Ordering operators only
+        // accept homogeneous pairs (two DateTimes, two Durations, two Numbers,
+        // two Strings); mixed pairings are rejected with the standard
+        // "Operand types … incompatible for operator …" template.
         var node = new ExpStmt(1, new BinaryOperation(1,
             new DateTimeV(1, new DateTime(2026, 3, 15)),
             BinaryOperator.LT,
             new NumberV(1, 5)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
+        Assert.Contains(tc.errors, e => e.Contains("Operand types 'Datetime' and 'Number'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("operator '<'",                          StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public void BinaryEq_DurationAndString_IsRejected_DirectAst()
     {
-        // Duration compared with String → type error.
+        // Duration compared with String → type error. Same template as the
+        // ordering case above; pin operand types and operator together.
         var node = new ExpStmt(1, new BinaryOperation(1,
             new DurationV(1, TimeSpan.FromDays(1)),
             BinaryOperator.EQ,
             new StringV(1, "hello")));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
+        Assert.Contains(tc.errors, e => e.Contains("Operand types 'Duration' and 'String'", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(tc.errors, e => e.Contains("operator '=='",                         StringComparison.OrdinalIgnoreCase));
     }
 
     // ── Positive: core RAL semantics ─────────────────────────────────────────
@@ -524,24 +557,33 @@ public class TypeCheckerTests
     public void MoveToUnknownCategory_IsRejectedWithSemanticError()
     {
         // Moving to an undeclared category must add an error to tc.errors.
-        // Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidMoveUnknownCategory);
+        // The Move rule emits "Use of undeclared category 'Unknown'." for the
+        // target name 'Unknown'. Pinning both the rule phrase and the
+        // offending identifier confirms the right rule was applied on the right node.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidMoveUnknownCategory,
+            "undeclared category", "Unknown");
     }
 
     [Fact]
     public void ReserveUnknownResource_IsRejectedWithSemanticError()
     {
         // Reserving an undeclared resource must add an error to tc.errors.
-        // Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveUnknownResource);
+        // The query-typing rule emits "Use of undeclared variable 'ghost'."
+        // for the offending resource name 'ghost'. Pin both the rule phrase
+        // and the identifier so the assertion identifies this rejection
+        // specifically, not any incidental error mentioning "ghost".
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveUnknownResource,
+            "undeclared variable", "ghost");
     }
 
     [Fact]
     public void AvailabilityUnknownResource_IsRejectedWithSemanticError()
     {
-        // Checking availability of an undeclared resource must add an error to tc.errors.
-        // Intended behavior: errors.Add, not a thrown exception.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidAvailabilityUnknownResource);
+        // Checking availability of an undeclared resource must add an error
+        // to tc.errors. Same query-typing rule as the reserve case above:
+        // "Use of undeclared variable 'ghost'.".
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidAvailabilityUnknownResource,
+            "undeclared variable", "ghost");
     }
 
     [Fact]
@@ -558,10 +600,14 @@ public class TypeCheckerTests
     [Fact]
     public void DuplicateResourceField_IsRejectedWithSemanticError()
     {
-        // Two fields with the same name in one resource must add an error to tc.errors.
-        // Intended behavior: errors.Add, not a thrown exception.
-        const string src = "category Room;\nRoom myRoom { Number beds = 2; Number beds = 4; }";
-        TestHelpers.TypeCheckShouldReportError(src);
+        // Two fields with the same name in one resource must add an error to
+        // tc.errors. The property-binding rule emits
+        //   "Property 'beds' has already been declared."
+        // for the duplicate field 'beds'. Pin the rule keyword, the offending
+        // identifier and the "already" phrase that distinguishes this from a
+        // generic property-related error.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidDuplicateResourceField,
+            "Property", "beds", "already");
     }
 
     [Fact]
@@ -569,8 +615,8 @@ public class TypeCheckerTests
     {
         // Declaring the same category twice must surface via tc.errors,
         // carrying the offending category name and the word "already".
-        const string src = "category Room;\ncategory Room;";
-        TestHelpers.TypeCheckShouldReportError(src, "Room", "already");
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidDuplicateCategory,
+            "Room", "already");
     }
 
     // ── Where-clause semantics ───────────────────────────────────────────────
@@ -594,19 +640,25 @@ public class TypeCheckerTests
     [Fact]
     public void ReserveWhereUnknownProperty_IsRejectedWithSemanticError()
     {
-        // 'floors' is not a declared property of any Room resource.
-        // The typechecker must add an error to tc.errors rather than silently
-        // returning a type for the unknown field.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownProperty);
+        // 'floors' is not a declared property of any Room resource. The
+        // category-property lookup emits
+        //   "No resource in the category tree of 'Room' declares a field 'floors'."
+        // Pin the offending property name and the rule keyword "field" so the
+        // assertion identifies this specific rejection.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownProperty,
+            "floors", "field");
     }
 
     [Fact]
     public void ReserveWhereUnknownAlias_IsRejectedWithSemanticError()
     {
         // Alias 'x' was never introduced in the resource spec; only 'r' was.
-        // The typechecker must add an error to tc.errors rather than letting
-        // envV.Lookup throw for the unbound alias.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownAlias);
+        // The reference-resolution rule emits "Use of undeclared variable 'x'."
+        // Pin the rule phrase and the quoted alias — "'x'" with quotes rather
+        // than bare "x", because the bare letter would match almost any error
+        // message incidentally.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownAlias,
+            "undeclared variable", "'x'");
     }
 
     // ── Template call semantics ───────────────────────────────────────────────
@@ -631,18 +683,26 @@ public class TypeCheckerTests
     {
         // Template expects 2 arguments but call supplies 1.
         // tc.errors must contain a message naming the template ("booking") and
-        // the word "arguments". The typechecker returns after reporting the
-        // count mismatch so no out-of-range indexing happens in the per-arg loop.
+        // the word "argument" — the production message uses the form
+        //   "booking expected 2 argument(s) got 1."
+        // so the keyword is "argument" (without trailing 's', which the
+        // production renders as "(s)" and would not match a contiguous
+        // substring search for "arguments"). The typechecker returns after
+        // reporting the count mismatch so no out-of-range indexing happens
+        // in the per-arg loop.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTemplateCallWrongArgCount,
-            "booking", "arguments");
+            "booking", "argument");
     }
 
     [Fact]
     public void TemplateCall_UnknownTemplate_IsRejectedWithSemanticError()
     {
         // Calling an undeclared template must surface through tc.errors, not
-        // through an unhandled exception from envT.Lookup.
-        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTemplateCallUnknownTemplate);
+        // through an unhandled exception from envT.Lookup. The rule emits
+        //   "Use of undeclared template 'missingTemplate'."
+        // Pin the rule phrase and the offending template name.
+        TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTemplateCallUnknownTemplate,
+            "undeclared template", "missingTemplate");
     }
 
     // ── Reservation combinator semantics (seq / and / or on reservations) ───
@@ -708,9 +768,11 @@ public class TypeCheckerTests
     public void RecurringEveryNumber_IsRejected()
     {
         // "recurring strict every 5 until 30/06-2026" — 5 has type Number, not
-        // Duration. RecurrenceIsWellTyped must reject the pairing and add an
-        // error mentioning the recurrence or the offending number type.
+        // Duration. RecurrenceIsWellTyped emits a message of the form
+        //   "Expected 'every 'Duration' until 'DateTime'' got 'every 'Number' until 'Datetime''."
+        // The keyword "every" is unique to the recurrence rule and "Number"
+        // names the offending type. Together they identify exactly this rule.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidRecurringNumberInterval,
-            "recurrence", "number");
+            "every", "Number");
     }
 }

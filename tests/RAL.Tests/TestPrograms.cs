@@ -269,6 +269,12 @@ static class TestPrograms
     public const string InvalidTemplateCallUnknownTemplate =
         "use missingTemplate(2);";
 
+    // A template body that initialises a local Number from an outer Number.
+    // The type system must resolve 'outer' through the template-body env into
+    // the enclosing env. Typechecks successfully.
+    public const string ValidTemplateBodyReadsOuter =
+        "Number outer = 5;\ntemplate t() { Number inner = outer; }";
+
     // A template that performs a reservation using its bound resource parameter.
     // After "use bookStay(roomA);" the outer variable "stay" must be a non-failed
     // ReservationVal whose single atom reserves exactly roomA from 15/03-2026 to
@@ -329,6 +335,18 @@ static class TestPrograms
     // Both declarations bind the same name in the same scope.
     public const string InvalidTypeDuplicateVar =
         "Number x = 5;\nNumber x = 10;";
+
+    // Two fields with the same name in one resource body. The property-binding
+    // rule rejects the second 'beds' declaration with "Property 'beds' has
+    // already been declared." — a regression test for the typechecker.
+    public const string InvalidDuplicateResourceField =
+        "category Room;\nRoom myRoom { Number beds = 2; Number beds = 4; }";
+
+    // Same category declared twice. The category-declaration rule rejects the
+    // second 'Room' with "Category 'Room' has already been declared." — a
+    // regression test for one of the two early-return bugs in the typechecker.
+    public const string InvalidDuplicateCategory =
+        "category Room;\ncategory Room;";
 
     // Reference to an undeclared variable.
     public const string InvalidTypeUndeclaredVar =

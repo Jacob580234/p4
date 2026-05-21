@@ -242,9 +242,15 @@ public class InterpreterTests : IDisposable
     {
         // Evaluating Reference("x", null) against an empty EnvV must throw —
         // the lookup has no binding to return. Reference itself IS supported
-        // (see Reference_DeclaredVariable_ReturnsBoundValue); only unbound lookup fails.
+        // (see Reference_DeclaredVariable_ReturnsBoundValue); only unbound
+        // lookup fails. EnvV.Lookup emits "Unknown name 'x'." — pin the rule
+        // phrase and the offending identifier so the assertion identifies the
+        // lookup rule specifically, not any random exception that happens to
+        // be thrown.
         var exp = new Reference(1, "x", null);
-        Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        var ex = Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        Assert.Contains("Unknown name", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("'x'",          ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -252,8 +258,12 @@ public class InterpreterTests : IDisposable
     {
         // NOT applied to a NumberV: wrong type at runtime.
         // The TypeChecker would reject this, but the Interpreter guards too.
+        // EvalUnary's fall-through emits "Invalid unary operation." for any
+        // operator/operand mismatch — pin that phrase so a generic
+        // NullReferenceException from a regression cannot satisfy the test.
         var exp = new UnaryOperation(1, UnaryOperator.NOT, new NumberV(1, 5));
-        Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        var ex = Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        Assert.Contains("Invalid unary operation", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // ── DateTime / Duration: literals ────────────────────────────────────────
@@ -401,23 +411,104 @@ public class InterpreterTests : IDisposable
     [Fact]
     public void DateTimePlusDateTime_ThrowsAtRuntime()
     {
-        // The typechecker rejects this; if it reaches the interpreter anyway, it must throw.
+        // The typechecker rejects this; if it reaches the interpreter anyway,
+        // EvalBinary's fall-through must fire with "Invalid binary operation:".
+        // Pin that phrase so the assertion confirms the runtime guard fired
+        // rather than some unrelated regression.
         var exp = new BinaryOperation(1,
             new DateTimeV(1, new DateTime(2026, 3, 15)),
             BinaryOperator.ADD,
             new DateTimeV(1, new DateTime(2026, 3, 16)));
-        Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        var ex = Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        Assert.Contains("Invalid binary operation", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void DurationPlusDateTime_ThrowsAtRuntime()
     {
+        // Same runtime guard as the DateTime+DateTime case above: the operand
+        // order matters even at runtime, and the binary fall-through fires
+        // with "Invalid binary operation:".
         var exp = new BinaryOperation(1,
             new DurationV(1, TimeSpan.FromDays(1)),
             BinaryOperator.ADD,
             new DateTimeV(1, new DateTime(2026, 3, 15)));
-        Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        var ex = Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
+        Assert.Contains("Invalid binary operation", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    // ── QueryEvaluator boolean intent ────────────────────
+    //
+    // HandleAvailability prints the user-facing banner, but the boolean
+    // decision behind it lives in QueryEvaluator.EvaluateQuery: a non-empty
+    // result means "available", an empty result means "not available". The
+    // two acceptance tests for UC2 further below (14, 15) pin the printed
+    // banner; the two tests here pin the underlying decision directly, so a
+    // banner-text change in HandleAvailability would not silently break the
+    // availability semantics.
+    //
+    // Setup is driven through the full parse → typecheck → execute pipeline
+    // using shared programs from TestPrograms.cs, so the resource registry
+    // and reservation registry reach the same state HandleAvailability would
+    // see at runtime. The ResolvedQuery is then constructed directly and
+    // passed to QueryEvaluator.EvaluateQuery, bypassing the print step.
+
+    [Fact]
+    public void QueryEvaluator_FreeResource_ReturnsCombinationOfTheNamedResource()
+    {
+        // Setup: declare myRoom; no reservations are made, so the room is
+        // free for any requested interval.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourceDecl);
+        TestHelpers.RunTypeChecker(root);
+        var envV = new EnvV();
+        Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
+
+        // Query myRoom on an arbitrary interval. ReservationRegistry.IsAvailable
+        // returns true, so EvaluateQuery yields exactly one candidate
+        // combination, holding exactly one resource — the named myRoom. The
+        // assertions drill into the layers in order so a regression in any
+        // one (combination count, combination size, resource identity, its
+        // category, its property set) fails at the line that pins that layer.
+        var query = new ResolvedQuery(
+            ResourceSpecs: [new ResourceInstanceSpec("myRoom")],
+            Start:        new DateTime(2026, 3, 15),
+            End:          new DateTime(2026, 3, 16),
+            Condition:    null);
+
+        var combinations = QueryEvaluator.EvaluateQuery(query, envV, new EnvH());
+
+        var combination = Assert.Single(combinations);              // exactly one valid combination
+        var resource    = Assert.Single(combination);               // combination contains exactly one resource
+        Assert.Equal("myRoom", resource.ResourceId);                // it is the named resource
+        Assert.Equal("Room",   resource.CategoryId);                // bound to the declared category
+        Assert.Empty(resource.Properties);                          // declared with an empty property body
+    }
+
+    [Fact]
+    public void QueryEvaluator_ConflictingReservation_ReturnsEmpty()
+    {
+        // Setup: declare myRoom and reserve it for 15/03 → 16/03 — the room
+        // is held throughout that exact interval.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveStatement);
+        TestHelpers.RunTypeChecker(root);
+        var envV = new EnvV();
+        Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
+
+        // Query myRoom on the same interval. ReservationRegistry.IsAvailable
+        // returns false, so the resolver fails fast and EvaluateQuery yields
+        // zero combinations — the boolean intent behind "Availability check
+        // failed".
+        var query = new ResolvedQuery(
+            ResourceSpecs: [new ResourceInstanceSpec("myRoom")],
+            Start:        new DateTime(2026, 3, 15),
+            End:          new DateTime(2026, 3, 16),
+            Condition:    null);
+
+        var combinations = QueryEvaluator.EvaluateQuery(query, envV, new EnvH());
+
+        Assert.Empty(combinations);
+    }
+
 
     // ── Statement execution: unit (tests 1–7) → acceptance (tests 8–26) ─────
     //
@@ -448,7 +539,6 @@ public class InterpreterTests : IDisposable
     // ReservationRegistry singletons between tests, so the same canonical
     // names ("Room", "myRoom", "res") can appear in every test without
     // cross-test pollution.
-
 
     [Fact]  // 1
     public void VarDecl_Number_BindsZeroDefault()
@@ -937,7 +1027,9 @@ public class InterpreterTests : IDisposable
         var envV = new EnvV();
         Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
 
-        Assert.Throws<Exception>(() => envV.Lookup("x"));
+        var ex = Assert.Throws<Exception>(() => envV.Lookup("x"));
+        Assert.Contains("Unknown name", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("'x'",          ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // ── End-to-end acceptance scenario (test 26) ────────────────────────────
