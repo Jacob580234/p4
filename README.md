@@ -1,71 +1,65 @@
 # RAL — Resource Availability Language
 
-A domain-specific language (DSL) for expressing and querying resource availability.
-Developed as a semester project at Aalborg University, SW4 Group 2, 2026.
-
+A domain-specific language for declaring resources and querying their availability over time.
+Semester project at Aalborg University, SW4 Group 2, 2026.
 
 ## Project Structure
 
 ```
 p4/
-├── CocoR/               # Coco/R grammar and generation script
-├── src/
-│   └── RAL/             # C# project
-│       ├──  Generated/  # Auto-generated scanner and parser (do not edit)
-│       ├──  AST
-│       └──  Interpreter
-├── tests/
-│   └── RAL.Tests/        ← xUnit test project
-
+├── CocoR/                # Coco/R grammar and generation script
+├── src/RAL/
+│   ├── Generated/        # Auto-generated scanner and parser (do not edit)
+│   ├── AST/              # Abstract syntax tree (statements, expressions, types)
+│   ├── TypeChecker/      # Static type checking and environments
+│   ├── Interpreter/      # Tree-walking interpreter and runtime registries
+│   └── Program.cs        # Entry point
+└── tests/RAL.Tests/      # xUnit test suite (parser, type checker, interpreter)
 ```
 
 ## Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Coco/R](https://ssw.jku.at/Research/Projects/Coco/) — only needed if regenerating the parser
-- Git
+- [Coco/R](https://ssw.jku.at/Research/Projects/Coco/) — only needed when regenerating the parser
 
-### Setup
-
-Clone the repository and navigate to the project:
+## Usage
 
 ```bash
-git clone https://github.com/Jacob580234/p4.git
+git clone https://github.com/NicklasHM/p4
 cd p4
+dotnet run --project src/RAL -- <inputfile>.ral
 ```
 
-### Regenerating the Parser
+Run the full test suite:
 
-Run the generation script whenever the grammar has been updated:
+```bash
+dotnet test
+```
+
+Regenerate the parser after grammar changes:
 
 ```bash
 cd CocoR
 ./generate.ps1
 ```
 
-This generates `Scanner.cs` and `Parser.cs` directly into `src/RAL/Generated/`.
-
-### Running all tests
-
-```bash
-dotnet test 
-```
+This writes `Scanner.cs` and `Parser.cs` into `src/RAL/Generated/`.
 
 ## Example
-```bash
+
+```
 category Room;
 category DoubleRoom is a Room;
 DoubleRoom room205 {
-  bool seaView;
-  int floor;
+  Bool seaView = true;
+  Number floor = 2;
 };
 
 check room205 from 15/03-2026 14:00 to 17/03-2026 12:00;
 ```
 
-## Status
+## Pipeline
 
-Work in progress — parser and grammar are functional.
-Interpreter and semantics are under development.
+Source → Scanner → Parser → AST → TypeChecker → Interpreter → Resource & Reservation registries.
 
 ## Group Members
 
