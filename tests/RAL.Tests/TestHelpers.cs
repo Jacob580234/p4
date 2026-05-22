@@ -77,18 +77,21 @@ static class TestHelpers
         return tc;
     }
 
-    // Parse and typecheck; assert at least one error and optionally verify that at
-    // least one error message contains one of the supplied keywords (case-insensitive).
+    // Parse and typecheck. Assert at least one error and that EACH supplied
+    // keyword appears in at least one error message (case-insensitive).
+    //
+    // Each keyword is checked in its own Assert.Contains so a failure points
+    // at exactly which keyword is missing
+    //
     // If the typechecker throws, the test fails — semantic errors must use tc.errors.
     public static TypeChecker TypeCheckShouldReportError(string source, params string[] expectedKeywords)
     {
         Stmt node = ParseShouldSucceed(source);
         var tc = RunTypeChecker(node);
         Assert.NotEmpty(tc.errors);
-        if (expectedKeywords.Length > 0)
+        foreach (var kw in expectedKeywords)
         {
-            Assert.Contains(tc.errors, e =>
-                expectedKeywords.Any(kw => e.Contains(kw, StringComparison.OrdinalIgnoreCase)));
+            Assert.Contains(tc.errors, e => e.Contains(kw, StringComparison.OrdinalIgnoreCase));
         }
         return tc;
     }
