@@ -164,13 +164,9 @@ internal static class QueryEvaluator {
      * e.g. crossSpecCandidate: [  [_room205] , [_room205, r4]  ] 
      * Both valid candidates isolated to their spec,sShould however get rejected, as the same resource can't be booked twice accross "and" at same time */
     private static bool HasNoResourceOverlap(List<HashSet<ResourceVal>> candidate) {
-        Console.WriteLine("\nIN HAS NO OVERLAP \n");
 
         // [ _room205, _room205, r4 ]        <- [   {_room205} , {_room205, r4}  ]
         List<ResourceVal> flatCandidateTupple =  candidate.SelectMany(resources => resources).ToList();
-
-        Console.WriteLine(flatCandidateTupple.Distinct().Count() +"==" +flatCandidateTupple.Count + "is "+  (flatCandidateTupple.Distinct().Count() == flatCandidateTupple.Count)
-        );
 
         // |[ _room205 , r4]|   !=    |[ _room205, _room205, r4  ]|    i.e. duplicate elements within tuple 
         return flatCandidateTupple.Distinct().Count() == flatCandidateTupple.Count;

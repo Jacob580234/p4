@@ -228,20 +228,19 @@ public class Interpreter {
         reservationRegistry.CancelReservation(reservation);
     }
 
-     private static void HandleAvailability(Availability av, EnvV envV, EnvH envH) {
-        (DateTime originalStart, DateTime originalEnd, TimeSpan duration) = ComputeTime(av.Query.Interval, envV, envH);
-        ResolvedQuery baseQuery = new ResolvedQuery(av.Query.ResourceSpecs, originalStart, originalEnd, av.Query.Condition);
-        
-        IEnumerable<List<ResourceVal>> validCombinations = QueryEvaluator.EvaluateQuery(baseQuery, envV, envH);
-        
-        if (validCombinations.Any()) {
-            Console.WriteLine($"Availability check succeeded for period {originalStart} to {originalEnd}. Valid combinations found:");
-            foreach(List<ResourceVal> combo in validCombinations) {
-                Console.WriteLine("  [" + string.Join(", ", combo.Select(resource => resource.ResourceId)) + "]");
-            }
-        } else {
+    private static void HandleAvailability(Availability av, EnvV envV, EnvH envH) {
+        ReservationVal result = EvalReserve(new Reserve(av.LineNumber, av.Query), envV, envH);
+
+        if (result.Failed()) {
             Console.WriteLine("Availability check failed: No resources satisfy the query.\n");
+            return;
         }
+
+        Console.WriteLine("Availability check succeeded. Slots:");
+        foreach (ReservationAtomVal atom in result.Reservations)
+            Console.WriteLine($"  [{atom.Start.Value} - {atom.End.Value}]: [{string.Join(", ", atom.Resources.Select(r => r.ResourceId))}]");
+
+        reservationRegistry.CancelReservation(result);
     }
 
     /*_____________________Expression Handlers_____________________*/
@@ -295,6 +294,7 @@ public class Interpreter {
 
         //Extract reservation time period for the base query
         (DateTime originalStart, DateTime originalEnd, TimeSpan duration) = ComputeTime(originalQuery.Interval, envV, envH);
+        if(originalStart > originalEnd) throw new Exception($"Line {reserveNode.LineNumber}: Start time may not come after end time");
 
         //Treat all queries equally. Wether an AST without recurring or simulated for requrrence         
         ResolvedQuery baseQuery = new ResolvedQuery(originalQuery.ResourceSpecs, originalStart, originalEnd, originalQuery.Condition);
@@ -310,6 +310,7 @@ public class Interpreter {
         
         List<ResolvedQuery> timeSlots = new() { baseQuery };
         (TimeSpan timeBetween, DateTime recurrenceEnd) = ComputeRecurrencePeriod(originalQuery.Recurrence.Time, originalStart, envV, envH);
+        
         
         //Accumulate each atomic reservation request, starting from the second reservation occurrence.
         for (DateTime slotStart = originalStart + timeBetween; slotStart <= recurrenceEnd; slotStart += timeBetween) {
@@ -467,6 +468,7 @@ public class Interpreter {
 
         //Extract requested time slot. _ discards the third value of the returned 3-tuple
         (DateTime requestedStart, DateTime requestedEnd, _) = ComputeTime(node.NewTimeInterval, envV, envH);
+        if(requestedStart > requestedEnd) throw new Exception($"Line {node.LineNumber}: Start time may not come after end time");
 
         //If any of the resources are unavailable, indicate failure each resource's availability in newly requested time
         if (atomicReservation.Resources.Any(resource => !reservationRegistry.IsAvailable(resource, requestedStart, requestedEnd)))
