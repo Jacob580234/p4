@@ -114,6 +114,28 @@ file static class AstVisitor
 
 public class AstTraversalTests
 {
+    // ── Root AST node shape ──────────────────────────────────────────────────
+    //
+    // Pins the foundational layout the parser builds for a "Type id = expr;"
+    // statement. Many tests in this file (and several InterpreterTests) rely
+    // on TestHelpers.ExtractFirstAssignmentRhs, which walks Composite →
+    // ExpStmt(Assignment) on the assumption pinned here. If this assertion
+    // breaks, the helper stops working and ~15 downstream tests fail at once
+    // without a clear signal about which AST assumption changed. Keeping the
+    // canary explicit means the regression surfaces first on this line.
+
+    [Fact]
+    public void NumberDecl_RootIsCompositeOfVarDeclAndAssignmentExpStmt()
+    {
+        // "Number x = 42;" → Composite(VarDecl, ExpStmt(Assignment)).
+        // One test pins the full shape.
+        Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidNumberDecl);
+        var composite = Assert.IsType<Composite>(root);
+        Assert.IsType<VarDecl>(composite.Stmt1);
+        var expStmt = Assert.IsType<ExpStmt>(composite.Stmt2);
+        Assert.IsType<Assignment>(expStmt.Expression);
+    }
+
     // ── Operator-precedence structure ─────────────────────────────────────────
 
     [Fact]

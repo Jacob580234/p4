@@ -21,6 +21,17 @@ namespace RAL.Tests;
  *   If the typechecker throws, the calling test FAILS — that failure is the signal
  *   that the typechecker needs to be fixed to use tc.errors instead of throwing.
  */
+// Bundles the post-run TypeChecker with all six environments it mutates, so
+// positive tests can assert on registered state in addition to tc.errors.
+internal sealed record TypeCheckPipelineResult(
+    TypeChecker Tc,
+    TC.EnvV     EnvV,
+    EnvC        EnvC,
+    TC.EnvH     EnvH,
+    EnvT        EnvT,
+    EnvR        EnvR,
+    EnvCPT      EnvCPT);
+
 static class TestHelpers
 {
     // ── Parser helpers ──────────────────────────────────────────────────────
@@ -103,6 +114,28 @@ static class TestHelpers
         var tc = new TypeChecker();
         tc.StmtType(node, new TC.EnvV(), new EnvC(), new TC.EnvH(), new EnvT(), new EnvR(), new EnvCPT());
         return tc;
+    }
+
+    // Parse + typecheck the source AND return the post-run environments alongside
+    // the TypeChecker. Lets positive tests probe what was actually registered (a
+    // var bound in envV, a template signature in envT, a category in envC, a
+    // subtype relation in envH, a property in envR/envCPT) — so "no errors" plus
+    // one focused env lookup pinpoints the specific rule the test claims to cover,
+    // instead of relying on Assert.Empty(tc.errors) alone.
+    //
+    // Does NOT assert anything; the caller asserts both errors-empty and env state.
+    public static TypeCheckPipelineResult RunTypeCheckPipeline(string source)
+    {
+        Stmt node = ParseShouldSucceed(source);
+        var envV    = new TC.EnvV();
+        var envC    = new EnvC();
+        var envH    = new TC.EnvH();
+        var envT    = new EnvT();
+        var envR    = new EnvR();
+        var envCPT  = new EnvCPT();
+        var tc      = new TypeChecker();
+        tc.StmtType(node, envV, envC, envH, envT, envR, envCPT);
+        return new TypeCheckPipelineResult(tc, envV, envC, envH, envT, envR, envCPT);
     }
 
     // ── Interpreter helpers ─────────────────────────────────────────────────
