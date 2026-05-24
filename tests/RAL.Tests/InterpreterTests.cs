@@ -672,15 +672,29 @@ public class InterpreterTests : IDisposable
     [Fact]  // 10
     public void Move_UpdatesRegistryBucketAndResourceCategoryId()
     {
-        // After "move myRoom to Suite;" the resource's CategoryId must be "Suite"
-        // and the registry must list it under Suite.
+        // After "move myRoom to Suite;" two things must be true simultaneously:
+        //   1. the ResourceVal's own CategoryId field is mutated to "Suite"
+        //   2. the ResourceRegistry's bucket layout reflects the move — myRoom
+        //      sits in the Suite bucket, NOT in the Room bucket.
+        //
+        // Probing the bucket layout via GetAllResourcesInCategorySubtree pins
+        // (2) directly: a regression in MoveResource that updated the field
+        // but forgot to remove from Room / add to Suite would surface here.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidMoveResourceToCategory);
         TestHelpers.RunTypeChecker(root);
         var envV = new EnvV();
         Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
+
         var resource = Assert.IsType<ResourceVal>(envV.Lookup("myRoom"));
         Assert.Equal("Suite", resource.CategoryId);
-        Assert.Contains("Suite", ResourceRegistry.Instance().ToString());
+
+        var suiteBucket = ResourceRegistry.Instance()
+            .GetAllResourcesInCategorySubtree(["Suite"]).ToList();
+        Assert.Contains(suiteBucket, r => r.ResourceId == "myRoom");
+
+        var roomBucket = ResourceRegistry.Instance()
+            .GetAllResourcesInCategorySubtree(["Room"]).ToList();
+        Assert.DoesNotContain(roomBucket, r => r.ResourceId == "myRoom");
     }
 
     [Fact]  // 11

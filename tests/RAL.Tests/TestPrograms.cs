@@ -73,10 +73,6 @@ static class TestPrograms
     public const string NotFalse =
         "Bool result = not(false);";
 
-    // "not(true)" should produce UnaryOperation(NOT, BoolV(true)) and evaluate to BoolVal(false).
-    public const string NotTrue =
-        "Bool result = not(true);";
-
     // "not(5)" should be rejected by the typechecker because NOT requires Bool.
     public const string NotOnNumber =
         "Number n = not(5);";
