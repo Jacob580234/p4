@@ -1,7 +1,3 @@
-# ── Coco/R generated files ────────────────────────────────────────────────
-Scanner.cs
-Parser.cs
-
 # ── .NET build output ─────────────────────────────────────────────────────
 bin/
 obj/
