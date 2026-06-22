@@ -3,7 +3,7 @@ namespace RAL.Tests;
 /*
  * Reusable RAL source-program strings used across all test classes.
  *
- * IMPORTANT — reserved keywords in RAL that cannot be used as identifiers:
+ * IMPORTANT - reserved keywords in RAL that cannot be used as identifiers:
  *   move, to, cancel, if, then, else, Number, Bool, String, Category,
  *   Reservation, DateTime, Duration, category, is, a, template, or, and,
  *   seq, not, true, false, reschedule, use, check, reserve, where, from,
@@ -93,27 +93,27 @@ static class TestPrograms
     //   number unit, optionally combined e.g. 1 week 2 days 3 hours 30 minutes
     //   Units: w/week/weeks  d/day/days  h/hour/hours  m/minute/minutes
 
-    // "DateTime dt = 15/03-2026;" — plain date literal, no time component.
+    // "DateTime dt = 15/03-2026;" - plain date literal, no time component.
     public const string ValidDateTimeDeclaration =
         "DateTime dt = 15/03-2026;";
 
-    // "DateTime dt = 15/03-2026 14:00;" — date literal with optional time component.
+    // "DateTime dt = 15/03-2026 14:00;" - date literal with optional time component.
     public const string ValidDateTimeWithTime =
         "DateTime dt = 15/03-2026 14:00;";
 
-    // "Duration dur = 2 days;" — simple day-based duration.
+    // "Duration dur = 2 days;" - simple day-based duration.
     public const string ValidDurationDeclaration =
         "Duration dur = 2 days;";
 
-    // "Duration dur = 1 week 2 days 3 hours 30 minutes;" — all four units combined.
+    // "Duration dur = 1 week 2 days 3 hours 30 minutes;" - all four units combined.
     public const string ValidDurationCompound =
         "Duration dur = 1 week 2 days 3 hours 30 minutes;";
 
-    // dt + dur → DateTime; all three variables in scope for the third assignment.
+    // dt + dur -> DateTime; all three variables in scope for the third assignment.
     public const string ValidDateTimePlusDuration =
         "DateTime startDate = 15/03-2026;\nDuration period = 2 days;\nDateTime endDate = startDate + period;";
 
-    // dt - dur → DateTime; subtraction of a duration from a datetime.
+    // dt - dur -> DateTime; subtraction of a duration from a datetime.
     public const string ValidDateTimeMinusDuration =
         "DateTime startDate = 17/03-2026;\nDuration period = 2 days;\nDateTime endDate = startDate - period;";
 
@@ -125,15 +125,15 @@ static class TestPrograms
     public const string InvalidDateTimeMinusDateTime =
         "DateTime begin = 16/03-2026;\nDateTime finish = 15/03-2026;\nDateTime diff = begin - finish;";
 
-    // Type error: ADD(DurationT, DateTimeT) — operand order matters.
+    // Type error: ADD(DurationT, DateTimeT) - operand order matters.
     public const string InvalidDurationPlusDateTime =
         "Duration period = 2 days;\nDateTime begin = 15/03-2026;\nDateTime result = period + begin;";
 
-    // Relational comparison between two DateTimes → Bool.
+    // Relational comparison between two DateTimes -> Bool.
     public const string ValidDateTimeComparison =
         "DateTime begin = 15/03-2026;\nDateTime finish = 16/03-2026;\nBool isBefore = begin < finish;";
 
-    // Relational comparison between two Durations → Bool.
+    // Relational comparison between two Durations -> Bool.
     public const string ValidDurationComparison =
         "Duration brief = 1 hour;\nDuration extended = 2 hours;\nBool isBriefer = brief < extended;";
 
@@ -159,7 +159,7 @@ static class TestPrograms
     public const string InvalidMoveUnknownCategory =
         "category Room;\nRoom myRoom {}\nmove myRoom to Unknown;";
 
-    // Semantic error: move applied to a non-resource variable → added to errors list.
+    // Semantic error: move applied to a non-resource variable -> added to errors list.
     public const string InvalidMoveNonResource =
         "Number n = 5;\ncategory Room;\nmove n to Room;";
 
@@ -168,12 +168,12 @@ static class TestPrograms
     public const string ValidReserveStatement =
         "category Room;\nRoom myRoom {}\nReservation res = reserve myRoom from 15/03-2026 to 16/03-2026;";
 
-    // "reserve myRoom from 15/03-2026 for 2 days" — the "for Duration" form of
+    // "reserve myRoom from 15/03-2026 for 2 days" - the "for Duration" form of
     // the Time non-terminal, instead of the "to DateTime" form.
     public const string ValidReserveForDuration =
         "category Room;\nRoom myRoom {}\nReservation res = reserve myRoom from 15/03-2026 for 2 days;";
 
-    // "reserve 2 Room from 15/03-2026 to 16/03-2026" — quantity+category resource
+    // "reserve 2 Room from 15/03-2026 to 16/03-2026" - quantity+category resource
     // spec ("a*rc" form), no alias and no where clause.
     public const string ValidReserveQuantityCategory =
         "category Room;\nRoom myRoom {}\nReservation res = reserve 2 Room from 15/03-2026 to 16/03-2026;";
@@ -193,7 +193,7 @@ static class TestPrograms
         "category Room;\nRoom myRoom {}\nReservation res = reserve myRoom from 15/03-2026 to 16/03-2026;\n" +
         "Reservation rescheduled = reschedule res from 20/03-2026 to 21/03-2026;";
 
-    // Type error: cancel applied to a non-Reservation expression → error in errors list.
+    // Type error: cancel applied to a non-Reservation expression -> error in errors list.
     public const string InvalidCancelNonReservation =
         "Number n = 5;\ncancel n;";
 
@@ -215,7 +215,7 @@ static class TestPrograms
 
     // ── Where-clause programs ────────────────────────────────────────────────
     //
-    // Syntax reminder: where (Exp) — parentheses are required.
+    // Syntax reminder: where (Exp) - parentheses are required.
     // The alias bound in the resource spec (e.g. "r") is in scope inside the predicate.
 
     // Valid: alias r in scope, r.beds is a known Number field, r.beds == 2 is Bool.
@@ -240,7 +240,7 @@ static class TestPrograms
 
     // ── Template call programs ───────────────────────────────────────────────
 
-    // Valid: declaration then call — argument types match declared parameter types.
+    // Valid: declaration then call - argument types match declared parameter types.
     public const string ValidTemplateCall =
         """
         template booking(Number n, String label) {}
@@ -274,7 +274,7 @@ static class TestPrograms
     // A template that performs a reservation using its bound resource parameter.
     // After "use bookStay(roomA);" the outer variable "stay" must be a non-failed
     // ReservationVal whose single atom reserves exactly roomA from 15/03-2026 to
-    // 17/03-2026 — proving that the template body actually executes against the
+    // 17/03-2026 - proving that the template body actually executes against the
     // bound argument and produces an observable reservation side effect, not just
     // a primitive value assignment.
     public const string TemplateReservationBodyProgram =
@@ -287,12 +287,12 @@ static class TestPrograms
         "use bookStay(roomA);";
 
     // The full UC10 compound booking pattern: a template that takes a room
-    // parameter and produces TWO reservations in its body — a stay on the
+    // parameter and produces TWO reservations in its body - a stay on the
     // parameter room, and a cleaning slot on the global cleaner immediately
     // after the stay. The "seq" combinator merges both atoms into one
     // composite ReservationVal, and the cleaning's start (17/03-2026 00:00)
     // is exactly the stay's end, encoding UC10's "immediately following the
-    // stay" timing relation. Drives the same Parse → TypeCheck → Interpret
+    // stay" timing relation. Drives the same Parse -> TypeCheck -> Interpret
     // pipeline as the other template programs.
     public const string TemplateCompoundBookingProgram =
         "category Room;\n" +
@@ -312,7 +312,7 @@ static class TestPrograms
     public const string InvalidSyntaxMissingSemicolon =
         "Number x = 5";
 
-    // Declaration with an operator directly after identifier — bad grammar.
+    // Declaration with an operator directly after identifier - bad grammar.
     public const string InvalidSyntaxBadDecl =
         "Number cd/2;";
 
@@ -334,12 +334,12 @@ static class TestPrograms
 
     // Two fields with the same name in one resource body. The property-binding
     // rule rejects the second 'beds' declaration with "Property 'beds' has
-    // already been declared." — a regression test for the typechecker.
+    // already been declared." - a regression test for the typechecker.
     public const string InvalidDuplicateResourceField =
         "category Room;\nRoom myRoom { Number beds = 2; Number beds = 4; }";
 
     // Same category declared twice. The category-declaration rule rejects the
-    // second 'Room' with "Category 'Room' has already been declared." — a
+    // second 'Room' with "Category 'Room' has already been declared." - a
     // regression test for one of the two early-return bugs in the typechecker.
     public const string InvalidDuplicateCategory =
         "category Room;\ncategory Room;";
@@ -357,7 +357,7 @@ static class TestPrograms
     // The grammar binds AND tighter than OR: LogicalAndExp is nested inside
     // LogicalOrExp. So "true and false or true" must parse as
     //   OR(AND(BoolV(true), BoolV(false)), BoolV(true))
-    // — not as AND(BoolV(true), OR(BoolV(false), BoolV(true))).
+    // - not as AND(BoolV(true), OR(BoolV(false), BoolV(true))).
     public const string ValidAndOrPrecedence =
         "Bool result = true and false or true;";
 
@@ -369,19 +369,19 @@ static class TestPrograms
     //   AND/OR: (BoolT, BoolT) | (ReservationT, ReservationT)
     //   SEQ:    (ReservationT, ReservationT)
 
-    // Two reserves combined with "seq" → composite (best-effort sequenced) reservation.
+    // Two reserves combined with "seq" -> composite (best-effort sequenced) reservation.
     public const string ValidReserveSeqReserve =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
         "seq reserve myRoom from 17/03-2026 to 18/03-2026;";
 
-    // Two reserves combined with "or" → choice reservation (either may satisfy).
+    // Two reserves combined with "or" -> choice reservation (either may satisfy).
     public const string ValidReserveOrReserve =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
         "or reserve myRoom from 17/03-2026 to 18/03-2026;";
 
-    // Two reserves combined with "and" → both-required reservation.
+    // Two reserves combined with "and" -> both-required reservation.
     public const string ValidReserveAndReserve =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
@@ -396,24 +396,24 @@ static class TestPrograms
     // Recurrence grammar (tail of QueryExp):
     //   "recurring" ("strict" | "flexible") "every" Exp ("until" DateTime | "for" Duration)
     // TypeChecker.RecurrenceIsWellTyped accepts:
-    //   (DurationT, DateTimeT) → "every D until DT"
-    //   (DurationT, DurationT) → "every D for D"
-    //   anything else → error
+    //   (DurationT, DateTimeT) -> "every D until DT"
+    //   (DurationT, DurationT) -> "every D for D"
+    //   anything else -> error
 
-    // "every 1 week until 30/06-2026" — strict mode, until-DateTime form.
+    // "every 1 week until 30/06-2026" - strict mode, until-DateTime form.
     public const string ValidRecurringStrictUntil =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
         "recurring strict every 1 week until 30/06-2026;";
 
-    // "every 1 week for 4 weeks" — flexible mode, for-Duration form.
+    // "every 1 week for 4 weeks" - flexible mode, for-Duration form.
     public const string ValidRecurringFlexibleFor =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
         "recurring flexible every 1 week for 4 weeks;";
 
     // Runtime-deterministic recurrence: "every 1 week for 3 weeks" anchored at
-    // 15/03-2026 → start dates 15/03, 22/03, 29/03, 5/04. Each atom is one day
+    // 15/03-2026 -> start dates 15/03, 22/03, 29/03, 5/04. Each atom is one day
     // long (16/03 − 15/03). Used by the interpreter test that asserts the
     // expansion produces exactly N atomic reservations with the right dates.
     public const string RecurringWeeklyForThreeWeeksProgram =
@@ -421,7 +421,7 @@ static class TestPrograms
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
         "recurring strict every 1 week for 3 weeks;";
 
-    // Type error: "every 5" — 5 has type Number, recurrence requires Duration.
+    // Type error: "every 5" - 5 has type Number, recurrence requires Duration.
     public const string InvalidRecurringNumberInterval =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
@@ -429,16 +429,16 @@ static class TestPrograms
 
     // ── Malformed reserve/check syntax ───────────────────────────────────────
     //
-    // Domain-specific grammar errors — distinct from the generic
+    // Domain-specific grammar errors - distinct from the generic
     // "missing semicolon / unclosed paren" cases above.
 
-    // "reserve myRoom 15/03-2026 …" — the required "from" keyword is missing
+    // "reserve myRoom 15/03-2026 …" - the required "from" keyword is missing
     // before the start-date expression.
     public const string InvalidSyntaxReserveMissingFrom =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom 15/03-2026 to 16/03-2026;";
 
-    // "check myRoom from 15/03-2026" — Time non-terminal needs either
+    // "check myRoom from 15/03-2026" - Time non-terminal needs either
     // "to DateTime" or "for Duration" after the start; neither is present.
     public const string InvalidSyntaxCheckMissingToOrFor =
         "category Room;\nRoom myRoom {}\ncheck myRoom from 15/03-2026;";
@@ -448,11 +448,11 @@ static class TestPrograms
     // These programs are crafted so that the post-execution state is
     // deterministic and observable (resource count, atom count, selected
     // resource identity, conflict outcome). They typecheck successfully and
-    // are designed to drive the full Parse → TypeCheck → Interpret pipeline.
+    // are designed to drive the full Parse -> TypeCheck -> Interpret pipeline.
 
     // Two non-overlapping reserves of the same resource combined with "seq".
     // After execution res must be a composite ReservationVal containing
-    // exactly two atoms: 15/03 → 16/03 and 17/03 → 18/03.
+    // exactly two atoms: 15/03 -> 16/03 and 17/03 -> 18/03.
     public const string CompositeSeqReservationProgram =
         "category Room;\nRoom myRoom {}\n" +
         "Reservation res = reserve myRoom from 15/03-2026 to 16/03-2026 " +
@@ -477,7 +477,7 @@ static class TestPrograms
 
     // Move a resource from Room into the Suite subcategory, then reserve
     // "1 Suite" for the same interval. After execution res must be a single
-    // atom whose Resources contains exactly myRoom — proving the moved
+    // atom whose Resources contains exactly myRoom - proving the moved
     // resource is reachable through the new category's subtree.
     public const string MoveThenReserveInNewCategoryProgram =
         "category Room;\ncategory Suite is a Room;\n" +
@@ -486,14 +486,14 @@ static class TestPrograms
         "Reservation res = reserve 1 Suite from 15/03-2026 to 16/03-2026;";
 
     // A then-branch declares a local Number x. After execution the outer
-    // scope must NOT see x — Interpreter.HandleIf opens envV.NewScope() for
+    // scope must NOT see x - Interpreter.HandleIf opens envV.NewScope() for
     // the branch body, so the binding lives only in that child scope and
     // Lookup("x") on the outer envV must throw.
     public const string IfScopeIsolationProgram =
         "if (true) then { Number x = 5; }";
 
-    // A reservation for 15/03 → 17/03 followed by an overlapping availability
-    // check for 16/03 → 18/03. The interval 16/03 → 17/03 is already held,
+    // A reservation for 15/03 -> 17/03 followed by an overlapping availability
+    // check for 16/03 -> 18/03. The interval 16/03 -> 17/03 is already held,
     // so ReservationRegistry.IsAvailable must return false and the
     // Availability statement must print "Availability check failed: ...".
     public const string AvailabilityWithConflictProgram =
@@ -508,7 +508,7 @@ static class TestPrograms
     //   two ResourceDecls with property bodies
     //   move (relocates roomB into the subcategory)
     //   named-resource reserve (binds r1 to a live reservation on roomA)
-    //   category + alias + where reserve over the parent category — this is
+    //   category + alias + where reserve over the parent category - this is
     //     the load-bearing part: GetSubCategories("Room") must include Suite,
     //     so the moved roomB is reachable through the parent's subtree, and
     //     the where predicate must filter the Cartesian product down to
@@ -518,7 +518,7 @@ static class TestPrograms
     // The post-execution state pins all of those behaviours simultaneously:
     //   r1.Failed() == true                      (cancel cleared its atoms)
     //   r2.Failed() == false                     (filter found a match)
-    //   r2 has exactly one atom on 17/03 → 18/03
+    //   r2 has exactly one atom on 17/03 -> 18/03
     //   r2's atom reserves exactly roomB         (filter picked beds == 4)
     //   roomA.CategoryId remains "Room"          (move only touched roomB)
     //   roomB.CategoryId is now "Suite"          (move propagated)

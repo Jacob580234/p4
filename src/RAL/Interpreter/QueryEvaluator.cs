@@ -70,7 +70,7 @@ internal static class QueryEvaluator {
             candidates = candidates.Where(candidate => SatisfiesCondition(candidate, specBindings, query.Condition, envV, envH));
        
 
-        // Grouping by spec no longer needed for id binding — flatten permanently into the output format
+        // Grouping by spec no longer needed for id binding - flatten permanently into the output format
         return candidates
                 .Select(
                     candidate => candidate.SelectMany(r => r).ToList()
@@ -246,7 +246,7 @@ internal static class QueryEvaluator {
         /* Include head: choose k-1 more from tail, then add head to each result
          Combinations([r2,r3], 1) -> [ [r2], [r3] ]
          after attaching head r1  -> [ {r1,r2}, {r1,r3} ]
-         combo.Append(head) produces an IEnumerable — ToHashSet() collects it into a Selection
+         combo.Append(head) produces an IEnumerable - ToHashSet() collects it into a Selection
          [..items] inside a HashSet literal: spread unpacks combo's elements, head adds one more*/
         List<Selection> withHead = GetCombinations(tail, n - 1)
                                         .Select(combo => new Selection([..combo, head]))

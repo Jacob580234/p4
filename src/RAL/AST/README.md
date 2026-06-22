@@ -2,10 +2,10 @@
 
 Node definitions for the RAL abstract syntax tree.
 
-- `Stmt.cs` — statement nodes (declarations, control flow, queries)
-- `Exp.cs` — expression nodes (literals, operators, identifiers)
-- `Type.cs` — type representations used by the type checker
-- `QueryData.cs` — supporting data carried by query statements
+- `Stmt.cs` - statement nodes (declarations, control flow, queries)
+- `Exp.cs` - expression nodes (literals, operators, identifiers)
+- `Type.cs` - type representations used by the type checker
+- `QueryData.cs` - supporting data carried by query statements
 
 Nodes are immutable C# records, leaning on positional parameters and structural equality.
 

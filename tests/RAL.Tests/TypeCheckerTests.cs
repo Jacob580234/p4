@@ -25,7 +25,7 @@ public class TypeCheckerTests
     [Fact]
     public void NumberArithmetic_IsAccepted()
     {
-        // "Number x = 2 / 5 * (2 + 2);" — beyond "no errors", the var-decl rule
+        // "Number x = 2 / 5 * (2 + 2);" - beyond "no errors", the var-decl rule
         // must have bound x in envV with type NumberT. A regression in HandleVarDecl
         // that silently skipped the bind would still pass Assert.Empty(tc.errors)
         // but fail the env-state probe below.
@@ -37,7 +37,7 @@ public class TypeCheckerTests
     [Fact]
     public void BoolLiteral_IsAccepted()
     {
-        // Bind rule: "Bool b = true;" → envV.b must be BoolT.
+        // Bind rule: "Bool b = true;" -> envV.b must be BoolT.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidBoolLiteral);
         Assert.Empty(r.Tc.errors);
         Assert.IsType<BoolT>(r.EnvV.Lookup("b"));
@@ -46,7 +46,7 @@ public class TypeCheckerTests
     [Fact]
     public void StringDecl_IsAccepted()
     {
-        // Bind rule: """String s = "hello";""" → envV.s must be StringT.
+        // Bind rule: """String s = "hello";""" -> envV.s must be StringT.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidStringDecl);
         Assert.Empty(r.Tc.errors);
         Assert.IsType<StringT>(r.EnvV.Lookup("s"));
@@ -69,7 +69,7 @@ public class TypeCheckerTests
     [Fact]
     public void BoolExpression_IsAccepted()
     {
-        // "Bool b = true and false;" — the RHS must type to BoolT and the bind
+        // "Bool b = true and false;" - the RHS must type to BoolT and the bind
         // must succeed. Asserting envV.b = BoolT confirms both: a wrong RHS type
         // would have been caught by the assignment-compatibility rule and added
         // to tc.errors, so reaching BoolT in envV implies the AND-on-Bools rule
@@ -87,7 +87,7 @@ public class TypeCheckerTests
         // "no errors" alone cannot distinguish a category-binding regression
         // from a resource-binding regression from a template-signature
         // regression. Probing each env (envC, envV, envT) pins all three
-        // independently — a failure in one rule fails its own assertion line.
+        // independently - a failure in one rule fails its own assertion line.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidResourceTemplate);
         Assert.Empty(r.Tc.errors);
 
@@ -97,7 +97,7 @@ public class TypeCheckerTests
         // Room myRoom {}
         Assert.Equal(new ResourceT("Room"), r.EnvV.Lookup("myRoom"));
 
-        // template booking(Number qty, String label) {...} — signature stored verbatim
+        // template booking(Number qty, String label) {...} - signature stored verbatim
         List<TypeT>? bookingSig = r.EnvT.Lookup("booking");
         Assert.NotNull(bookingSig);
         Assert.Equal(2, bookingSig!.Count);
@@ -108,7 +108,7 @@ public class TypeCheckerTests
     [Fact]
     public void ResourceWithProperty_IsAccepted()
     {
-        // "category Room; Room myRoom { Number beds = 2; }" — property-binding
+        // "category Room; Room myRoom { Number beds = 2; }" - property-binding
         // touches three envs: envV (the resource variable), envR (resource's
         // field map), and envCPT (category's property table for where-clause
         // typing). All three must agree on the field's type. Asserting on each
@@ -125,10 +125,10 @@ public class TypeCheckerTests
     [Fact]
     public void CategoryHierarchy_IsAccepted()
     {
-        // "category Room; category DoubleRoom is a Room;" — the subtype relation
+        // "category Room; category DoubleRoom is a Room;" - the subtype relation
         // must end up in envH so later resource-typing can resolve DoubleRoom-as-Room.
         // Probing envC pins category registration; envH.IsSubtype pins the "is a"
-        // edge specifically — a regression that registered DoubleRoom without
+        // edge specifically - a regression that registered DoubleRoom without
         // recording its parent would pass the envC assertion but fail IsSubtype.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidCategoryHierarchy);
         Assert.Empty(r.Tc.errors);
@@ -141,7 +141,7 @@ public class TypeCheckerTests
     [Fact]
     public void IfStatement_WithBoolCondition_IsAccepted()
     {
-        // "Bool cond = true; if (cond) then {...} else {...}" — cond must be
+        // "Bool cond = true; if (cond) then {...} else {...}" - cond must be
         // bound as BoolT in the outer scope before HandleIf inspects it. Probing
         // envV.cond pins the condition-binding precondition; the if-rule itself
         // only adds an error when the condition is non-Bool, so empty errors
@@ -154,7 +154,7 @@ public class TypeCheckerTests
     [Fact]
     public void Shadowing_TemplateParamShadowsOuterVar_IsAccepted()
     {
-        // "Number x = 5; template t(Number x) { Number y = x; }" — the template
+        // "Number x = 5; template t(Number x) { Number y = x; }" - the template
         // body opens a child scope, so the inner x (the parameter) shadows the
         // outer x without overwriting it. After typecheck the outer envV must
         // still see x as NumberT (proves shadow was scoped, not assigned), and
@@ -173,7 +173,7 @@ public class TypeCheckerTests
     [Fact]
     public void TemplateBody_ReadsOuterScopeVariable_IsAccepted()
     {
-        // "Number outer = 5; template t() { Number inner = outer; }" — the
+        // "Number outer = 5; template t() { Number inner = outer; }" - the
         // template body must resolve "outer" by walking from its local envV up
         // through parent links into the enclosing envV. A regression that
         // failed to chain the lookup would emit "undeclared variable 'outer'"
@@ -194,7 +194,7 @@ public class TypeCheckerTests
     [Fact]
     public void UnaryNot_OnBool_IsAccepted()
     {
-        // UnaryOperation(NOT, BoolV(false)) → BoolT — no type error.
+        // UnaryOperation(NOT, BoolV(false)) -> BoolT - no type error.
         var node = new ExpStmt(1, new UnaryOperation(1, UnaryOperator.NOT, new BoolV(1, false)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.Empty(tc.errors);
@@ -223,7 +223,7 @@ public class TypeCheckerTests
     [Fact]
     public void StringAssignedToNumber_IsRejected()
     {
-        // """Number x = "hello";""" — assignment-compat rule emits
+        // """Number x = "hello";""" - assignment-compat rule emits
         //   "Variable 'x' expected type 'Number' got 'String'."
         // Pinning the "expected type 'Number'" + "got 'String'" phrases
         // identifies this exact rule, not any incidental error mentioning
@@ -236,7 +236,7 @@ public class TypeCheckerTests
     [Fact]
     public void BoolDivision_IsRejected()
     {
-        // "Number s = true / false;" — the DIV rule emits
+        // "Number s = true / false;" - the DIV rule emits
         //   "Operand types 'Bool' and 'Bool' incompatible for operator '/'."
         // Pinning the operand-pair phrase + the operator together identifies
         // the DIV-on-Bools branch specifically. (The bare keyword "bool" used
@@ -249,7 +249,7 @@ public class TypeCheckerTests
     [Fact]
     public void IfStatement_WithNonBoolCondition_IsRejected()
     {
-        // "Number n = 5; if (n) then {...}" — HandleIf emits
+        // "Number n = 5; if (n) then {...}" - HandleIf emits
         //   "If statement expected condition of type 'bool' got 'Number'."
         // Pinning "If statement" + "condition" + "got 'Number'" identifies
         // the if-condition rule and the offending type together.
@@ -263,7 +263,7 @@ public class TypeCheckerTests
     [Fact]
     public void UnaryNot_OnNumber_IsRejected()
     {
-        // UnaryOperation(NOT, NumberV(5)) → typechecker must add an error.
+        // UnaryOperation(NOT, NumberV(5)) -> typechecker must add an error.
         // The NOT-on-non-Bool rule emits a message of the form
         //   "Operator 'not' expected 'Bool' got 'Number'."
         // Each of the three identifying phrases is asserted separately so a
@@ -281,7 +281,7 @@ public class TypeCheckerTests
     [Fact]
     public void BinaryDiv_BoolOperands_IsRejected()
     {
-        // BinaryOperation(DIV, BoolV, BoolV) → type error.
+        // BinaryOperation(DIV, BoolV, BoolV) -> type error.
         // Binary operand-type errors take the form
         //   "Operand types 'L' and 'R' incompatible for operator 'OP'."
         // Operand-pair phrase and operator are asserted separately; a stray
@@ -297,7 +297,7 @@ public class TypeCheckerTests
     [Fact]
     public void BinaryAdd_StringAndNumber_IsRejected()
     {
-        // BinaryOperation(ADD, StringV, NumberV) → type error.
+        // BinaryOperation(ADD, StringV, NumberV) -> type error.
         var node = new ExpStmt(1,
             new BinaryOperation(1, new StringV(1, "hello"), BinaryOperator.ADD, new NumberV(1, 3)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
@@ -311,7 +311,7 @@ public class TypeCheckerTests
     [Fact]
     public void UnaryNeg_OnNumber_IsAccepted_DirectAst()
     {
-        // UnaryOperation(NEG, NumberV(5)) → NumberT — no type error.
+        // UnaryOperation(NEG, NumberV(5)) -> NumberT - no type error.
         var node = new ExpStmt(1, new UnaryOperation(1, UnaryOperator.NEG, new NumberV(1, 5)));
         TypeChecker tc = TestHelpers.RunTypeChecker(node);
         Assert.Empty(tc.errors);
@@ -320,7 +320,7 @@ public class TypeCheckerTests
     [Fact]
     public void UnaryNeg_OnBool_IsRejected_DirectAst()
     {
-        // UnaryOperation(NEG, BoolV(true)) → type error (NEG requires Number).
+        // UnaryOperation(NEG, BoolV(true)) -> type error (NEG requires Number).
         // The NEG-on-non-Number rule emits a message of the form
         //   "Operator '-' expected 'Number' got 'Bool'."
         // Each phrase asserted separately for focused failure diagnostics.
@@ -348,7 +348,7 @@ public class TypeCheckerTests
 
     // ── Semantic errors: undeclared and duplicate identifiers ─────────────────
     // Intended behavior: these must be reported through tc.errors, not exceptions.
-    // If the typechecker currently throws for any of these, the test will FAIL —
+    // If the typechecker currently throws for any of these, the test will FAIL -
     // that failure is the signal that the typechecker needs to be fixed.
 
     [Fact]
@@ -368,17 +368,17 @@ public class TypeCheckerTests
         // Looking up an identifier that was never declared must add an error
         // to tc.errors. Intended behavior: errors.Add, not a thrown exception.
         // Keyword "undeclared variable" distinguishes this from "undeclared
-        // category" / "undeclared template" — different rules, same source style.
+        // category" / "undeclared template" - different rules, same source style.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTypeUndeclaredVar,
             "undeclared variable");
     }
 
-    // ── Positive: DateTime / Duration — source programs ──────────────────────
+    // ── Positive: DateTime / Duration - source programs ──────────────────────
 
     [Fact]
     public void DateTimeDeclaration_IsAccepted()
     {
-        // "DateTime dt = 15/03-2026;" — the literal-typing rule must yield
+        // "DateTime dt = 15/03-2026;" - the literal-typing rule must yield
         // DateTimeT and the var-decl must bind dt to that type. A regression
         // that misclassified the literal would either be caught by the
         // assignment-compatibility rule (and added to tc.errors) or, if the
@@ -392,7 +392,7 @@ public class TypeCheckerTests
     [Fact]
     public void DurationDeclaration_IsAccepted()
     {
-        // "Duration dur = 2 days;" — Duration literal must type to DurationT
+        // "Duration dur = 2 days;" - Duration literal must type to DurationT
         // and the bind must succeed.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidDurationDeclaration);
         Assert.Empty(r.Tc.errors);
@@ -403,7 +403,7 @@ public class TypeCheckerTests
     public void DateTimePlusDuration_IsAccepted()
     {
         // Three sequential decls; the third asserts the binary rule
-        // ADD(DateTimeT, DurationT) → DateTimeT. Probing endDate isolates the
+        // ADD(DateTimeT, DurationT) -> DateTimeT. Probing endDate isolates the
         // binary rule's output: a regression in HandleBinary that returned the
         // wrong type would still pass "no errors" if the assignment-compat
         // rule's fallthrough didn't notice, and the env probe pins this.
@@ -418,7 +418,7 @@ public class TypeCheckerTests
     public void DateTimeMinusDuration_IsAccepted()
     {
         // Same shape as DateTimePlusDuration, but for SUB(DateTimeT, DurationT)
-        // → DateTimeT. The two operands and the result type are pinned
+        // -> DateTimeT. The two operands and the result type are pinned
         // separately so a SUB-specific regression surfaces on the endDate line.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidDateTimeMinusDuration);
         Assert.Empty(r.Tc.errors);
@@ -430,7 +430,7 @@ public class TypeCheckerTests
     [Fact]
     public void DateTimeComparison_LessThan_IsAccepted()
     {
-        // LT(DateTimeT, DateTimeT) → BoolT — probing isBefore = BoolT proves
+        // LT(DateTimeT, DateTimeT) -> BoolT - probing isBefore = BoolT proves
         // the ordering-on-DateTimes rule returned Bool, not just that no error
         // fired.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidDateTimeComparison);
@@ -441,18 +441,18 @@ public class TypeCheckerTests
     [Fact]
     public void DurationComparison_LessThan_IsAccepted()
     {
-        // LT(DurationT, DurationT) → BoolT — symmetric companion to the
+        // LT(DurationT, DurationT) -> BoolT - symmetric companion to the
         // DateTime case above.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidDurationComparison);
         Assert.Empty(r.Tc.errors);
         Assert.IsType<BoolT>(r.EnvV.Lookup("isBriefer"));
     }
 
-    // ── Positive: DateTime / Duration — direct AST ────────────────────────────
+    // ── Positive: DateTime / Duration - direct AST ────────────────────────────
     // The two EQ tests below are positive
     // coverage of EQ on DateTimes / Durations anywhere in the suite. They are
     // wrapped in a typed VarDecl + Assignment so the assignment-compat rule
-    // indirectly verifies that EQ actually returns BoolT — a regression that
+    // indirectly verifies that EQ actually returns BoolT - a regression that
     // returned DateTimeT or DurationT instead would now surface as an
     // "expected type 'Bool' got '...'" error.
 
@@ -460,7 +460,7 @@ public class TypeCheckerTests
     public void BinaryEq_TwoDateTimes_IsAccepted()
     {
         // Direct-AST equivalent of "Bool b = 15/03-2026 == 16/03-2026;".
-        // EQ(DateTimeT, DateTimeT) → BoolT, then HandleAssignment compares the
+        // EQ(DateTimeT, DateTimeT) -> BoolT, then HandleAssignment compares the
         // returned type against the declared BoolT for variable b. If EQ
         // regressed to return DateTimeT instead, assignment-compat would emit
         //   "Variable 'b' expected type 'Bool' got 'Datetime'."
@@ -481,7 +481,7 @@ public class TypeCheckerTests
     public void BinaryEq_TwoDurations_IsAccepted()
     {
         // Symmetric to BinaryEq_TwoDateTimes_IsAccepted but for EQ(DurationT,
-        // DurationT) → BoolT. Same wrapping rationale: the result type is
+        // DurationT) -> BoolT. Same wrapping rationale: the result type is
         // pinned by the assignment-compat check against the declared BoolT.
         var stmt = new Composite(1,
             new VarDecl(1, new BoolT(), "b"),
@@ -495,7 +495,7 @@ public class TypeCheckerTests
         Assert.Empty(tc.errors);
     }
 
-    // ── Negative: DateTime / Duration — must produce type errors ─────────────
+    // ── Negative: DateTime / Duration - must produce type errors ─────────────
 
     [Fact]
     public void DateTimePlusDateTime_IsRejected()
@@ -532,7 +532,7 @@ public class TypeCheckerTests
     [Fact]
     public void DateTimeAssignedToNumber_IsRejected()
     {
-        // "Number n = 15/03-2026;" — assignment-compat rule emits
+        // "Number n = 15/03-2026;" - assignment-compat rule emits
         //   "Variable 'n' expected type 'Number' got 'Datetime'."
         TestHelpers.TypeCheckShouldReportError(
             TestPrograms.InvalidDateTimeAssignedToNumber,
@@ -542,7 +542,7 @@ public class TypeCheckerTests
     [Fact]
     public void DurationAssignedToDateTime_IsRejected()
     {
-        // "DateTime dt = 2 days;" — assignment-compat rule emits
+        // "DateTime dt = 2 days;" - assignment-compat rule emits
         //   "Variable 'dt' expected type 'Datetime' got 'Duration'."
         TestHelpers.TypeCheckShouldReportError(
             TestPrograms.InvalidDurationAssignedToDateTime,
@@ -552,7 +552,7 @@ public class TypeCheckerTests
     [Fact]
     public void BinaryAdd_DateTimePlusDateTime_IsRejected_DirectAst()
     {
-        // ADD(DateTimeT, DateTimeT) has no overload — the rule emits
+        // ADD(DateTimeT, DateTimeT) has no overload - the rule emits
         //   "Operand types 'Datetime' and 'Datetime' incompatible for operator '+'."
         var node = new ExpStmt(1, new BinaryOperation(1,
             new DateTimeV(1, new DateTime(2026, 3, 15)),
@@ -584,7 +584,7 @@ public class TypeCheckerTests
     [Fact]
     public void BinaryLt_DateTimeAndNumber_IsRejected_DirectAst()
     {
-        // DateTime compared with Number → type error. Ordering operators only
+        // DateTime compared with Number -> type error. Ordering operators only
         // accept homogeneous pairs (two DateTimes, two Durations, two Numbers,
         // two Strings); mixed pairings are rejected with the standard
         // "Operand types … incompatible for operator …" template.
@@ -601,7 +601,7 @@ public class TypeCheckerTests
     [Fact]
     public void BinaryEq_DurationAndString_IsRejected_DirectAst()
     {
-        // Duration compared with String → type error. Same template as the
+        // Duration compared with String -> type error. Same template as the
         // ordering case above; pin operand types and operator together.
         var node = new ExpStmt(1, new BinaryOperation(1,
             new DurationV(1, TimeSpan.FromDays(1)),
@@ -636,7 +636,7 @@ public class TypeCheckerTests
     [Fact]
     public void ReserveKnownResource_IsAccepted()
     {
-        // "Reservation res = reserve myRoom from ... to ...;" — the reserve
+        // "Reservation res = reserve myRoom from ... to ...;" - the reserve
         // expression must type to ReservationT, then the assignment-compat
         // rule must accept it for the Reservation-typed declaration. Probing
         // envV.res = ReservationT confirms both stages.
@@ -649,7 +649,7 @@ public class TypeCheckerTests
     [Fact]
     public void AvailabilityKnownResource_IsAccepted()
     {
-        // "check myRoom from ... to ...;" — Availability is a statement with
+        // "check myRoom from ... to ...;" - Availability is a statement with
         // no envV side effect, so the only env-state probe we have is the
         // precondition that myRoom was bound before the check. The Availability
         // rule itself only adds errors when the query is malformed, so empty
@@ -664,7 +664,7 @@ public class TypeCheckerTests
     {
         // Cancel rule requires the operand to be a Reservation variable.
         // Probing envV.res = ReservationT proves the reserve before cancel
-        // bound correctly — cancel itself does not unbind the variable at
+        // bound correctly - cancel itself does not unbind the variable at
         // type-time (binding stays; only its runtime value flips to "failed").
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidCancelReservation);
         Assert.Empty(r.Tc.errors);
@@ -675,7 +675,7 @@ public class TypeCheckerTests
     public void RescheduleReservation_IsAccepted()
     {
         // "reschedule res from ... to ..." returns ReservationT and is assigned
-        // to a new Reservation-typed variable. Both bindings must survive — a
+        // to a new Reservation-typed variable. Both bindings must survive - a
         // regression in the reschedule rule that returned a different type
         // would fail the assignment-compat check on rescheduled.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidRescheduleReservation);
@@ -687,9 +687,9 @@ public class TypeCheckerTests
     [Fact]
     public void PropertyAccess_KnownField_IsAccepted()
     {
-        // "Number numBeds = myRoom.beds;" — property-access on a known field
+        // "Number numBeds = myRoom.beds;" - property-access on a known field
         // must yield the field's declared type (NumberT here). The RHS-type
-        // → LHS-type chain is pinned by probing numBeds = NumberT: if
+        // -> LHS-type chain is pinned by probing numBeds = NumberT: if
         // HandleReference returned the wrong type for property access, the
         // assignment-compat rule would have caught it (covered by Assert.Empty),
         // OR the bind would carry a wrong type (covered by the IsType assertion).
@@ -704,10 +704,10 @@ public class TypeCheckerTests
     [Fact]
     public void CancelNonReservation_IsRejected()
     {
-        // "Number n = 5; cancel n;" — HandleCancel emits
+        // "Number n = 5; cancel n;" - HandleCancel emits
         //   "Expected type 'Reservation' got: Number."
         // Pin "Expected type 'Reservation'" + the offending type "got: Number"
-        // — identifies the cancel-rule branch specifically, not any incidental
+        // - identifies the cancel-rule branch specifically, not any incidental
         // error mentioning the words "reservation" or "number".
         TestHelpers.TypeCheckShouldReportError(
             TestPrograms.InvalidCancelNonReservation,
@@ -717,9 +717,9 @@ public class TypeCheckerTests
     [Fact]
     public void MoveNonResource_IsRejected()
     {
-        // "Number n = 5; category Room; move n to Room;" — HandleMove emits
+        // "Number n = 5; category Room; move n to Room;" - HandleMove emits
         //   "Expected type 'Resource' got 'Number'."
-        // The bare keyword "resource" used previously was too generic — it
+        // The bare keyword "resource" used previously was too generic - it
         // matched almost any resource-related error. Pin the full rule phrase
         // and the offending operand type.
         TestHelpers.TypeCheckShouldReportError(
@@ -781,7 +781,7 @@ public class TypeCheckerTests
         // HandlePropertyReference emits
         //   "Property 'floors' doesn't exist in resource 'myRoom'."
         // Pin the rule phrase, the offending property and the resource it was
-        // looked up on — three keywords together identify this exact branch.
+        // looked up on - three keywords together identify this exact branch.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidResourcePropertyAccess,
             "Property 'floors'", "doesn't exist", "myRoom");
     }
@@ -802,7 +802,7 @@ public class TypeCheckerTests
     [Fact]
     public void DuplicateCategory_IsRejected()
     {
-        // "category Room; category Room;" — HandleCategoryDecl emits
+        // "category Room; category Room;" - HandleCategoryDecl emits
         //   "Category 'Room' has already been declared."
         // Pin the rule phrase, the quoted category name, and the
         // "already been declared" suffix that distinguishes this from
@@ -864,7 +864,7 @@ public class TypeCheckerTests
     {
         // Alias 'x' was never introduced in the resource spec; only 'r' was.
         // The reference-resolution rule emits "Use of undeclared variable 'x'."
-        // Pin the rule phrase and the quoted alias — "'x'" with quotes rather
+        // Pin the rule phrase and the quoted alias - "'x'" with quotes rather
         // than bare "x", because the bare letter would match almost any error
         // message incidentally.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidReserveWhereUnknownAlias,
@@ -880,7 +880,7 @@ public class TypeCheckerTests
         // The template-decl rule registers the signature in envT; the
         // template-call rule then looks it up and matches the supplied
         // argument types against it. Probing envT.Lookup("booking") confirms
-        // the signature was registered with exactly the declared types — a
+        // the signature was registered with exactly the declared types - a
         // regression that wrote the wrong types would still pass empty errors
         // if the call happened to pass the same wrong types.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidTemplateCall);
@@ -896,11 +896,11 @@ public class TypeCheckerTests
     [Fact]
     public void TemplateCall_WrongArgType_IsRejectedWithSemanticError()
     {
-        // "template booking(Number n) {} use booking(\"wrong\");" — the per-arg
+        // "template booking(Number n) {} use booking(\"wrong\");" - the per-arg
         // type-match rule emits
         //   "Argument 1 of template 'booking' expected 'Number' got 'String'."
         // Pin the offending arg position + template name + the type-mismatch
-        // phrase so the keyword set identifies the per-arg branch — not the
+        // phrase so the keyword set identifies the per-arg branch - not the
         // count-mismatch branch immediately above it in the same handler.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidTemplateCallWrongArgType,
             "Argument 1 of template 'booking'", "expected 'Number'", "got 'String'");
@@ -935,14 +935,14 @@ public class TypeCheckerTests
     // ── Reservation combinator semantics (seq / and / or on reservations) ───
     //
     // HandleBinary rules:
-    //   AND/OR: (BoolT, BoolT) | (ReservationT, ReservationT) → operand type
+    //   AND/OR: (BoolT, BoolT) | (ReservationT, ReservationT) -> operand type
     //   SEQ:    (ReservationT, ReservationT) only
     // Any other operand pairing must add an error to tc.errors.
 
     [Fact]
     public void ReserveSeqReserve_IsAccepted()
     {
-        // "Reservation res = reserve … seq reserve …;" — SEQ(Reservation, Reservation)
+        // "Reservation res = reserve … seq reserve …;" - SEQ(Reservation, Reservation)
         // must yield ReservationT and bind res. The SEQ rule has no Bool overload,
         // so reaching ReservationT in envV proves the reservation-typed overload
         // fired (not just that some overload fired).
@@ -955,7 +955,7 @@ public class TypeCheckerTests
     public void ReserveOrReserve_IsAccepted()
     {
         // OR overloaded between (Bool, Bool) and (Reservation, Reservation).
-        // res = ReservationT proves the reservation overload fired — a regression
+        // res = ReservationT proves the reservation overload fired - a regression
         // that defaulted to the Bool overload would have been caught by the
         // assignment-compat rule (and added to tc.errors).
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidReserveOrReserve);
@@ -976,10 +976,10 @@ public class TypeCheckerTests
     [Fact]
     public void SeqOnBools_IsRejected()
     {
-        // "Reservation res = true seq false;" — SEQ has no Bool overload, only
+        // "Reservation res = true seq false;" - SEQ has no Bool overload, only
         // (Reservation, Reservation). HandleBinary's SEQ-fallthrough emits
         //   "Operand types 'Bool' and 'Bool' incompatible for operator 'seq'."
-        // Same pinning style as the AND/OR/DIV operand-pair rejections — pin
+        // Same pinning style as the AND/OR/DIV operand-pair rejections - pin
         // operand-pair + the specific operator together.
         TestHelpers.TypeCheckShouldReportError(TestPrograms.InvalidSeqOnBools,
             "Operand types 'Bool' and 'Bool'", "operator 'seq'");
@@ -998,7 +998,7 @@ public class TypeCheckerTests
         // "Reservation res = reserve … recurring strict every 1 week until 30/06-2026;"
         // Recurrence-typing rule accepts (DurationT, DateTimeT) for the until-form.
         // res = ReservationT proves the whole reserve+recurrence chain typed
-        // correctly — a recurrence regression that rejected the operand pair
+        // correctly - a recurrence regression that rejected the operand pair
         // would add an error (caught by Assert.Empty) and the reserve would
         // not have produced a Reservation to bind.
         var r = TestHelpers.RunTypeCheckPipeline(TestPrograms.ValidRecurringStrictUntil);
@@ -1019,7 +1019,7 @@ public class TypeCheckerTests
     [Fact]
     public void RecurringEveryNumber_IsRejected()
     {
-        // "recurring strict every 5 until 30/06-2026" — 5 has type Number, not
+        // "recurring strict every 5 until 30/06-2026" - 5 has type Number, not
         // Duration. RecurrenceIsWellTyped's until-branch emits
         //   "Expected 'every 'Duration' until 'DateTime'' got 'every 'Number' until 'Datetime''."
         // Pin the expected-form phrase + the got-form prefix that names the

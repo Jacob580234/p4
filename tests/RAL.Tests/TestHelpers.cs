@@ -11,14 +11,14 @@ namespace RAL.Tests;
 /*
  * Reusable helpers for all test classes.
  * Each helper either drives the real production pipeline
- * (Parser → TypeChecker → Interpreter) or constructs AST nodes
+ * (Parser -> TypeChecker -> Interpreter) or constructs AST nodes
  * directly for lower-level tests.
  *
  * Intended error-reporting contract for the TypeChecker:
  *   All semantic/type errors must be reported through tc.errors.Add(...).
  *   The typechecker must NOT throw exceptions for detectable semantic errors.
  *   These helpers do NOT catch typechecker exceptions.
- *   If the typechecker throws, the calling test FAILS — that failure is the signal
+ *   If the typechecker throws, the calling test FAILS - that failure is the signal
  *   that the typechecker needs to be fixed to use tc.errors instead of throwing.
  */
 // Bundles the post-run TypeChecker with all six environments it mutates, so
@@ -69,7 +69,7 @@ static class TestHelpers
     // ── TypeChecker helpers ─────────────────────────────────────────────────
 
     // Parse and typecheck; assert zero type errors and no exception.
-    // If the typechecker throws, the test fails — semantic errors must use tc.errors.
+    // If the typechecker throws, the test fails - semantic errors must use tc.errors.
     public static TypeChecker TypeCheckShouldSucceed(string source)
     {
         Stmt node = ParseShouldSucceed(source);
@@ -79,7 +79,7 @@ static class TestHelpers
     }
 
     // Parse and typecheck; assert at least one type error and no exception.
-    // If the typechecker throws, the test fails — semantic errors must use tc.errors.
+    // If the typechecker throws, the test fails - semantic errors must use tc.errors.
     public static TypeChecker TypeCheckShouldFail(string source)
     {
         Stmt node = ParseShouldSucceed(source);
@@ -94,7 +94,7 @@ static class TestHelpers
     // Each keyword is checked in its own Assert.Contains so a failure points
     // at exactly which keyword is missing
     //
-    // If the typechecker throws, the test fails — semantic errors must use tc.errors.
+    // If the typechecker throws, the test fails - semantic errors must use tc.errors.
     public static TypeChecker TypeCheckShouldReportError(string source, params string[] expectedKeywords)
     {
         Stmt node = ParseShouldSucceed(source);
@@ -108,7 +108,7 @@ static class TestHelpers
     }
 
     // Run the TypeChecker on an already-parsed node with fresh, empty environments.
-    // Does NOT catch exceptions — if the typechecker throws, the caller's test fails.
+    // Does NOT catch exceptions - if the typechecker throws, the caller's test fails.
     public static TypeChecker RunTypeChecker(Stmt node)
     {
         var tc = new TypeChecker();
@@ -119,7 +119,7 @@ static class TestHelpers
     // Parse + typecheck the source AND return the post-run environments alongside
     // the TypeChecker. Lets positive tests probe what was actually registered (a
     // var bound in envV, a template signature in envT, a category in envC, a
-    // subtype relation in envH, a property in envR/envCPT) — so "no errors" plus
+    // subtype relation in envH, a property in envR/envCPT) - so "no errors" plus
     // one focused env lookup pinpoints the specific rule the test claims to cover,
     // instead of relying on Assert.Empty(tc.errors) alone.
     //
@@ -150,7 +150,7 @@ static class TestHelpers
     //
     // ResourceRegistry and ReservationRegistry are process-wide singletons.
     // Without resetting between tests, registrations from one test leak into the
-    // next — forcing every test to invent unique category names (RoomA, RoomB…).
+    // next - forcing every test to invent unique category names (RoomA, RoomB…).
     // Reflection is used so production code stays untouched.
     // Each reset asserts the private field exists; a rename in production will
     // surface as a clear test-helper failure rather than spooky cross-test state.
@@ -167,7 +167,7 @@ static class TestHelpers
         FieldInfo field = typeof(ResourceRegistry).GetField(
             "_registry", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException(
-                "ResourceRegistry._registry field not found — has it been renamed?");
+                "ResourceRegistry._registry field not found - has it been renamed?");
         var dict = (Dictionary<string, HashSet<ResourceVal>>)field.GetValue(instance)!;
         dict.Clear();
         dict.Add("Resource", new HashSet<ResourceVal>());
@@ -179,7 +179,7 @@ static class TestHelpers
         FieldInfo field = typeof(ReservationRegistry).GetField(
             "_registry", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException(
-                "ReservationRegistry._registry field not found — has it been renamed?");
+                "ReservationRegistry._registry field not found - has it been renamed?");
         var set = (HashSet<ReservationVal>)field.GetValue(instance)!;
         set.Clear();
     }
