@@ -94,7 +94,7 @@ class TypeChecker {
         // Add the new category to the set; function returns bool indicating whether category has already been declared
         if(envC.AddCategory(cd.CategoryId) == false) {
             errors.Add($"Line {cd.LineNumber}: Category '{cd.CategoryId}' has already been declared.");
-            return; // skip EstablishRelation — re-adding the same key would throw from Dictionary.Add
+            return; // skip EstablishRelation - re-adding the same key would throw from Dictionary.Add
         }
 
         //Handle relation to parent - 'is a id' part of [category id is a id]. If no relation is explicitly provided, parent is 'Resource'
@@ -193,16 +193,17 @@ class TypeChecker {
             if (existingType != incomingType) {
                 errors.Add(
                     $"Conflicting types: property '{propertyId}' is declared as " +
-                    $"'{incomingType}' but already exists as '{existingType}' " +
+                    $"'{incomingType}' in '{resDeclType.Category}' but already exists as '{existingType}' " +
                     $"in category '{related.Category}'."
                 );
             }
                 
-            return; // found in tree, consistent or error logged; do not bind again
+            break;
         }
          // 2.Success New to entire tree, register it
          // No need to guard against failed bind; will never reach here if it is already bounded given the above return
-        envCPT.Bind(resDeclType.Category, propertyId, incomingType);
+        if(!envCPT.HasProperty(resDeclType.Category, propertyId))
+            envCPT.Bind(resDeclType.Category, propertyId, incomingType);
      }
 
     private void HandleTemplateDecl(TemplateDecl tmplDecl, EnvV envV, EnvC envC, EnvH envH, EnvT envT, EnvR envR, EnvCPT envCPT) {
@@ -235,7 +236,7 @@ class TypeChecker {
 
         if(formalParamTypes.Count != tc.ArgList.Count) {
             errors.Add($"Line {tc.LineNumber}: {tc.TemplateId} expected {formalParamTypes.Count} argument(s) got {tc.ArgList.Count}.");
-            return; // skip per-arg type checks — indexing tc.ArgList[i] in the loop below would go out of range
+            return; // skip per-arg type checks - indexing tc.ArgList[i] in the loop below would go out of range
         }
 
         if(formalParamTypes.Count == 0 || tc.ArgList.Count == 0) return;

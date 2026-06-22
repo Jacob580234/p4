@@ -5,17 +5,17 @@ using Interp = RAL.Interpreter.Interpreter;
 namespace RAL.Tests;
 
 /*
- * Tests for the Interpreter — both the expression evaluator (EvalExp) and
+ * Tests for the Interpreter - both the expression evaluator (EvalExp) and
  * the statement executor (ExecStmt).
  *
  * Test levels: this class mixes unit and acceptance tests by design.
  *   - Expression-evaluator tests (top of file) construct AST nodes directly
- *     and assert on EvalExp output — unit tests of the interpreter.
+ *     and assert on EvalExp output - unit tests of the interpreter.
  *   - Statement tests 1–7 also construct AST nodes directly and drive
- *     ExecStmt against a fresh environment — unit tests.
- *   - Statement tests 8–26 run the full Parse → TypeCheck → Interpret
+ *     ExecStmt against a fresh environment - unit tests.
+ *   - Statement tests 8–26 run the full Parse -> TypeCheck -> Interpret
  *     pipeline because they exercise side effects on ResourceRegistry /
- *     ReservationRegistry that only the Interpreter mutates — acceptance
+ *     ReservationRegistry that only the Interpreter mutates - acceptance
  *     tests in the study-regulation sense (representative whole programs,
  *     observable behaviour).
  *
@@ -240,10 +240,10 @@ public class InterpreterTests : IDisposable
     [Fact]
     public void Reference_UnboundName_ThrowsException()
     {
-        // Evaluating Reference("x", null) against an empty EnvV must throw —
+        // Evaluating Reference("x", null) against an empty EnvV must throw -
         // the lookup has no binding to return. Reference itself IS supported
         // (see Reference_DeclaredVariable_ReturnsBoundValue); only unbound
-        // lookup fails. EnvV.Lookup emits "Unknown name 'x'." — pin the rule
+        // lookup fails. EnvV.Lookup emits "Unknown name 'x'." - pin the rule
         // phrase and the offending identifier so the assertion identifies the
         // lookup rule specifically, not any random exception that happens to
         // be thrown.
@@ -259,7 +259,7 @@ public class InterpreterTests : IDisposable
         // NOT applied to a NumberV: wrong type at runtime.
         // The TypeChecker would reject this, but the Interpreter guards too.
         // EvalUnary's fall-through emits "Invalid unary operation." for any
-        // operator/operand mismatch — pin that phrase so a generic
+        // operator/operand mismatch - pin that phrase so a generic
         // NullReferenceException from a regression cannot satisfy the test.
         var exp = new UnaryOperation(1, UnaryOperator.NOT, new NumberV(1, 5));
         var ex = Assert.Throws<Exception>(() => TestHelpers.EvalExpression(exp, new EnvV(), new EnvH()));
@@ -447,7 +447,7 @@ public class InterpreterTests : IDisposable
     // banner-text change in HandleAvailability would not silently break the
     // availability semantics.
     //
-    // Setup is driven through the full parse → typecheck → execute pipeline
+    // Setup is driven through the full parse -> typecheck -> execute pipeline
     // using shared programs from TestPrograms.cs, so the resource registry
     // and reservation registry reach the same state HandleAvailability would
     // see at runtime. The ResolvedQuery is then constructed directly and
@@ -465,7 +465,7 @@ public class InterpreterTests : IDisposable
 
         // Query myRoom on an arbitrary interval. ReservationRegistry.IsAvailable
         // returns true, so EvaluateQuery yields exactly one candidate
-        // combination, holding exactly one resource — the named myRoom. The
+        // combination, holding exactly one resource - the named myRoom. The
         // assertions drill into the layers in order so a regression in any
         // one (combination count, combination size, resource identity, its
         // category, its property set) fails at the line that pins that layer.
@@ -487,7 +487,7 @@ public class InterpreterTests : IDisposable
     [Fact]
     public void QueryEvaluator_ConflictingReservation_ReturnsEmpty()
     {
-        // Setup: declare myRoom and reserve it for 15/03 → 16/03 — the room
+        // Setup: declare myRoom and reserve it for 15/03 -> 16/03 - the room
         // is held throughout that exact interval.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveStatement);
         TestHelpers.RunTypeChecker(root);
@@ -496,7 +496,7 @@ public class InterpreterTests : IDisposable
 
         // Query myRoom on the same interval. ReservationRegistry.IsAvailable
         // returns false, so the resolver fails fast and EvaluateQuery yields
-        // zero combinations — the boolean intent behind "Availability check
+        // zero combinations - the boolean intent behind "Availability check
         // failed".
         var query = new ResolvedQuery(
             ResourceSpecs: [new ResourceInstanceSpec("myRoom")],
@@ -510,25 +510,25 @@ public class InterpreterTests : IDisposable
     }
 
 
-    // ── Statement execution: unit (tests 1–7) → acceptance (tests 8–26) ─────
+    // ── Statement execution: unit (tests 1–7) -> acceptance (tests 8–26) ─────
     //
     // These tests drive Interpreter.ExecStmt rather than EvalExp.
     // Tests 1–7 are unit-style: direct AST construction, no parser involved.
-    // Tests 8–26 are acceptance-style: full parse → typecheck → interpret
+    // Tests 8–26 are acceptance-style: full parse -> typecheck -> interpret
     // pipeline on representative source programs that declare categories /
     // resources / reservations the interpreter mutates via side-effects on
     // EnvV and the global registries. The region break below marks the
-    // unit → acceptance boundary inline. The acceptance tier itself splits
+    // unit -> acceptance boundary inline. The acceptance tier itself splits
     // into three groups, separated by region headers further down:
     //   8–15  basic statement and expression coverage (decls, move, reserve,
-    //         cancel, reschedule, availability) — one observable side effect
+    //         cancel, reschedule, availability) - one observable side effect
     //         per test.
-    //   16–25 domain-semantics coverage — composite reservations, recurrence
+    //   16–25 domain-semantics coverage - composite reservations, recurrence
     //         expansion, where-clause filtering at runtime, conflict
     //         detection, move propagation through availability, template
     //         parameter binding (single and compound booking patterns), and
     //         if-branch scope isolation.
-    //   26    end-to-end scenario — a single program that exercises every
+    //   26    end-to-end scenario - a single program that exercises every
     //         front-end module cooperatively (category hierarchy, resource
     //         declarations with properties, move, two reserves, cancel) and
     //         asserts on the joint final state. Matches the study regulation's
@@ -543,7 +543,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 1
     public void VarDecl_Number_BindsZeroDefault()
     {
-        // "Number x;" must bind x → NumberVal(0) in the current scope.
+        // "Number x;" must bind x -> NumberVal(0) in the current scope.
         var stmt = new VarDecl(1, new NumberT(), "x");
         var envV = new EnvV();
         Interp.ExecStmt(stmt, envV, new EnvH(), new EnvTem());
@@ -554,7 +554,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 2
     public void VarDecl_Bool_BindsFalseDefault()
     {
-        // "Bool b;" must bind b → BoolVal(false).
+        // "Bool b;" must bind b -> BoolVal(false).
         var stmt = new VarDecl(1, new BoolT(), "b");
         var envV = new EnvV();
         Interp.ExecStmt(stmt, envV, new EnvH(), new EnvTem());
@@ -567,7 +567,7 @@ public class InterpreterTests : IDisposable
     {
         // Left declares x; right assigns 5 to x.
         // If the order were reversed, the Assignment would throw because
-        // x would not yet be bound — so a successful x == 5 confirms left-then-right.
+        // x would not yet be bound - so a successful x == 5 confirms left-then-right.
         var stmt = new Composite(1,
             new VarDecl(1, new NumberT(), "x"),
             new ExpStmt(1, new Assignment(1,
@@ -582,7 +582,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 4
     public void Reference_DeclaredVariable_ReturnsBoundValue()
     {
-        // Pre-bind x → 7 in envV; evaluating Reference("x", null) must return that value.
+        // Pre-bind x -> 7 in envV; evaluating Reference("x", null) must return that value.
         var envV = new EnvV();
         envV.Bind("x", new NumberVal(7));
         var value = Assert.IsType<NumberVal>(
@@ -593,7 +593,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 5
     public void Assignment_VariableForm_UpdatesBinding()
     {
-        // Pre-bind x → 0; evaluate Assignment(x, 9); envV.Lookup("x") must be 9.
+        // Pre-bind x -> 0; evaluate Assignment(x, 9); envV.Lookup("x") must be 9.
         var envV = new EnvV();
         envV.Bind("x", new NumberVal(0));
         TestHelpers.EvalExpression(
@@ -606,7 +606,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 6
     public void If_TrueCondition_ExecutesThenBranch()
     {
-        // Pre-bind flag → 0; if (true) then { flag = 1; } else { flag = 2; }
+        // Pre-bind flag -> 0; if (true) then { flag = 1; } else { flag = 2; }
         // After execution flag must be 1.
         var envV = new EnvV();
         envV.Bind("flag", new NumberVal(0));
@@ -622,7 +622,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 7
     public void If_FalseCondition_ExecutesElseBranch()
     {
-        // Pre-bind flag → 0; if (false) then { flag = 1; } else { flag = 2; }
+        // Pre-bind flag -> 0; if (false) then { flag = 1; } else { flag = 2; }
         // After execution flag must be 2.
         var envV = new EnvV();
         envV.Bind("flag", new NumberVal(0));
@@ -657,7 +657,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 9
     public void ResourceDecl_CreatesResourceValWithPropertyMap()
     {
-        // "Room myRoom { Number beds = 2; }" — envV.Lookup("myRoom") must be a
+        // "Room myRoom { Number beds = 2; }" - envV.Lookup("myRoom") must be a
         // ResourceVal whose Properties["beds"] equals NumberVal(2).
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourceWithProperty);
         TestHelpers.RunTypeChecker(root);
@@ -674,7 +674,7 @@ public class InterpreterTests : IDisposable
     {
         // After "move myRoom to Suite;" two things must be true simultaneously:
         //   1. the ResourceVal's own CategoryId field is mutated to "Suite"
-        //   2. the ResourceRegistry's bucket layout reflects the move — myRoom
+        //   2. the ResourceRegistry's bucket layout reflects the move - myRoom
         //      sits in the Suite bucket, NOT in the Room bucket.
         //
         // Probing the bucket layout via GetAllResourcesInCategorySubtree pins
@@ -773,7 +773,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 15
     public void Availability_WithConflictingReservation_ReportsUnavailable()
     {
-        // After reserving myRoom for 15/03 → 17/03, a check for 16/03 → 18/03
+        // After reserving myRoom for 15/03 -> 17/03, a check for 16/03 -> 18/03
         // overlaps the existing booking; ReservationRegistry.IsAvailable
         // returns false for myRoom in that interval, so HandleAvailability
         // must print the failure banner ("Availability check failed ...").
@@ -800,7 +800,7 @@ public class InterpreterTests : IDisposable
 
     // ── Acceptance: domain-semantics coverage (tests 16–25) ─────────────────
     //
-    // Acceptance-level tests that drive the full Parse → TypeCheck → Interpret
+    // Acceptance-level tests that drive the full Parse -> TypeCheck -> Interpret
     // pipeline. Each one pins a piece of domain semantics that the simpler
     // single-statement tests above do not cover. The three composite-reservation
     // tests (16–18) sit together so that "seq", "and" and "or" are read as one
@@ -834,8 +834,8 @@ public class InterpreterTests : IDisposable
     public void CompositeAnd_TwoReserves_ProducesCompositeReservationWithBothAtoms()
     {
         // "reserve A and reserve B" requires both sides to succeed. Both
-        // reserves target myRoom on disjoint intervals (15/03 → 16/03 and
-        // 17/03 → 18/03), so EvalReserveAND merges the right atom into the
+        // reserves target myRoom on disjoint intervals (15/03 -> 16/03 and
+        // 17/03 -> 18/03), so EvalReserveAND merges the right atom into the
         // left and the result holds two atoms in source order.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveAndReserve);
         TestHelpers.RunTypeChecker(root);
@@ -858,7 +858,7 @@ public class InterpreterTests : IDisposable
     {
         // "reserve A or reserve B" short-circuits: EvalReserveOR only attempts
         // the right operand when the left one fails. Here the left reserve
-        // (15/03 → 16/03) succeeds against an empty registry, so the right
+        // (15/03 -> 16/03) succeeds against an empty registry, so the right
         // is never evaluated and the result contains exactly the left atom.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveOrReserve);
         TestHelpers.RunTypeChecker(root);
@@ -880,7 +880,7 @@ public class InterpreterTests : IDisposable
         // "every 1 week for 3 weeks" anchored at 15/03 must expand into the
         // base atom plus three shifted atoms: 15/03, 22/03, 29/03, 5/04.
         // Each atom is one day long (end = start + 1 day, mirroring the base
-        // interval 15/03 → 16/03). STRICT means EvalReserveAND chains them;
+        // interval 15/03 -> 16/03). STRICT means EvalReserveAND chains them;
         // because the same resource at distinct non-overlapping times never
         // conflicts, every atom succeeds.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.RecurringWeeklyForThreeWeeksProgram);
@@ -927,7 +927,7 @@ public class InterpreterTests : IDisposable
     [Fact]  // 21
     public void ConflictingReservation_SecondAttemptOnSameInterval_Fails()
     {
-        // First reserve takes myRoom for 15/03 → 16/03 and succeeds. The
+        // First reserve takes myRoom for 15/03 -> 16/03 and succeeds. The
         // second reserve targets the same room on the same interval, so
         // ReservationRegistry.IsAvailable returns false and EvalReserveAtom
         // returns an empty ReservationVal. "first" stays bound to a live
@@ -949,7 +949,7 @@ public class InterpreterTests : IDisposable
     {
         // Move myRoom from Room into Suite, then reserve "1 Suite". The
         // QueryEvaluator walks the Suite subtree, which now contains the
-        // moved resource. The resulting atom must reserve exactly myRoom —
+        // moved resource. The resulting atom must reserve exactly myRoom -
         // proving the move propagated through both the ResourceVal's
         // CategoryId and the ResourceRegistry's bucket layout.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.MoveThenReserveInNewCategoryProgram);
@@ -968,12 +968,12 @@ public class InterpreterTests : IDisposable
     [Fact]  // 23
     public void TemplateCall_ExecutesReservationBody_AndUsesBoundParameter()
     {
-        // bookStay(r) reserves the bound resource for 15/03 → 17/03. The
+        // bookStay(r) reserves the bound resource for 15/03 -> 17/03. The
         // template is invoked with roomA, so the reservation produced inside
         // the body must reference exactly roomA on that interval. Verifies
         // the intended domain use case: templates as reusable booking
         // patterns whose parameter flows into a reserve statement and yields
-        // an observable reservation side effect — not just a primitive
+        // an observable reservation side effect - not just a primitive
         // assignment to an outer variable.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.TemplateReservationBodyProgram);
         TestHelpers.RunTypeChecker(root);
@@ -996,8 +996,8 @@ public class InterpreterTests : IDisposable
         // fixed stay window AND the global cleaner for a two-hour cleaning
         // slot immediately following the stay. After "use bookStayWithClean
         // (roomA);" the outer "booking" must hold a composite ReservationVal
-        // whose first atom reserves roomA on 15/03 → 17/03 and whose second
-        // atom reserves janitor on 17/03 00:00 → 17/03 02:00. The cleaning
+        // whose first atom reserves roomA on 15/03 -> 17/03 and whose second
+        // atom reserves janitor on 17/03 00:00 -> 17/03 02:00. The cleaning
         // atom's Start must equal the stay atom's End.
         // Complements test 23 (parameter-binding mechanic) with the actual
         // multi-statement composition that justifies templates as a DSL feature.
@@ -1011,28 +1011,28 @@ public class InterpreterTests : IDisposable
         Assert.True(reservation.IsComposite());
         Assert.Equal(2, reservation.Reservations.Count);
 
-        // First atom: the stay — roomA, 15/03 → 17/03.
+        // First atom: the stay - roomA, 15/03 -> 17/03.
         var stayAtom = reservation.Reservations[0];
         var stayResource = Assert.Single(stayAtom.Resources);
         Assert.Equal("roomA", stayResource.ResourceId);
         Assert.Equal(new DateTime(2026, 3, 15), stayAtom.Start.Value);
         Assert.Equal(new DateTime(2026, 3, 17), stayAtom.End.Value);
 
-        // Second atom: the cleaning slot — janitor, 17/03 00:00 → 17/03 02:00.
+        // Second atom: the cleaning slot - janitor, 17/03 00:00 -> 17/03 02:00.
         var cleanAtom = reservation.Reservations[1];
         var cleanResource = Assert.Single(cleanAtom.Resources);
         Assert.Equal("janitor", cleanResource.ResourceId);
         Assert.Equal(new DateTime(2026, 3, 17, 0, 0, 0), cleanAtom.Start.Value);
         Assert.Equal(new DateTime(2026, 3, 17, 2, 0, 0), cleanAtom.End.Value);
 
-        // "Immediately following the stay" — cleaning starts exactly when stay ends.
+        // "Immediately following the stay" - cleaning starts exactly when stay ends.
         Assert.Equal(stayAtom.End.Value, cleanAtom.Start.Value);
     }
 
     [Fact]  // 25
     public void IfThenBranch_LocalDeclaration_DoesNotLeakToOuterScope()
     {
-        // "if (true) then { Number x = 5; }" — HandleIf opens a new scope for
+        // "if (true) then { Number x = 5; }" - HandleIf opens a new scope for
         // the branch body, so VarDecl binds x only inside that child scope.
         // After execution the outer envV must NOT see x, and EnvV.Lookup must
         // throw the "Unknown name" exception its contract specifies.
@@ -1063,11 +1063,11 @@ public class InterpreterTests : IDisposable
         var envV = new EnvV();
         Interp.ExecStmt(root, envV, new EnvH(), new EnvTem());
 
-        // r1 was cancelled → its Reservations list must be empty.
+        // r1 was cancelled -> its Reservations list must be empty.
         var r1 = Assert.IsType<ReservationVal>(envV.Lookup("r1"));
         Assert.True(r1.Failed());
 
-        // r2 succeeded and reserved exactly one resource — the moved roomB,
+        // r2 succeeded and reserved exactly one resource - the moved roomB,
         // selected via the where predicate r.beds == 4 over Room's subtree.
         var r2 = Assert.IsType<ReservationVal>(envV.Lookup("r2"));
         Assert.False(r2.Failed());

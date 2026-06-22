@@ -1,4 +1,4 @@
-# RAL — Resource Availability Language
+# RAL - Resource Availability Language
 
 A domain-specific language for declaring resources and querying their availability over time.
 Semester project at Aalborg University, SW4 Group 2, 2026.
@@ -19,7 +19,7 @@ p4/
 
 ## Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Coco/R](https://ssw.jku.at/Research/Projects/Coco/) — only needed when regenerating the parser
+- [Coco/R](https://ssw.jku.at/Research/Projects/Coco/) - only needed when regenerating the parser
 
 ## Usage
 
@@ -59,7 +59,7 @@ check room205 from 15/03-2026 14:00 to 17/03-2026 12:00;
 
 ## Pipeline
 
-Source → Scanner → Parser → AST → TypeChecker → Interpreter → Resource & Reservation registries.
+Source -> Scanner -> Parser -> AST -> TypeChecker -> Interpreter -> Resource & Reservation registries.
 
 ## Group Members
 

@@ -28,7 +28,7 @@ file static class AstVisitor
     // For a program ending in
     //   "Reservation res = reserve 1 Room r ... where (r.beds == 2);"
     // the path from the root looks like:
-    //   Composite → Composite → Composite → ExpStmt
+    //   Composite -> Composite -> Composite -> ExpStmt
     //                                       └─ Assignment.Expression
     //                                          └─ Reserve.Query.Condition
     // Direct navigation would need six casts and would shift whenever the
@@ -118,7 +118,7 @@ public class AstTraversalTests
     //
     // Pins the foundational layout the parser builds for a "Type id = expr;"
     // statement. Many tests in this file (and several InterpreterTests) rely
-    // on TestHelpers.ExtractFirstAssignmentRhs, which walks Composite →
+    // on TestHelpers.ExtractFirstAssignmentRhs, which walks Composite ->
     // ExpStmt(Assignment) on the assumption pinned here. If this assertion
     // breaks, the helper stops working and ~15 downstream tests fail at once
     // without a clear signal about which AST assumption changed. Keeping the
@@ -127,7 +127,7 @@ public class AstTraversalTests
     [Fact]
     public void NumberDecl_RootIsCompositeOfVarDeclAndAssignmentExpStmt()
     {
-        // "Number x = 42;" → Composite(VarDecl, ExpStmt(Assignment)).
+        // "Number x = 42;" -> Composite(VarDecl, ExpStmt(Assignment)).
         // One test pins the full shape.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidNumberDecl);
         var composite = Assert.IsType<Composite>(root);
@@ -215,7 +215,7 @@ public class AstTraversalTests
     [Fact]
     public void CategoryDecl_HasCorrectIdAndNullParent()
     {
-        // "category Room;" — single statement; root IS the CategoryDecl node directly.
+        // "category Room;" - single statement; root IS the CategoryDecl node directly.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidCategory);
         var catDecl = Assert.IsType<CategoryDecl>(root);
         Assert.Equal("Room", catDecl.CategoryId);
@@ -240,7 +240,7 @@ public class AstTraversalTests
     public void IfStatement_HasReferenceConditionAndBodies()
     {
         // "Bool cond = true; if (cond) then {...} else {...}"
-        // The If node is in the Composite tree — depth depends on the parser's
+        // The If node is in the Composite tree - depth depends on the parser's
         // Composite folding, so we navigate with FindFirstIf rather than by position.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidIfStmt);
         If? ifStmt = AstVisitor.FindFirstIf(root);
@@ -323,7 +323,7 @@ public class AstTraversalTests
     [Fact]
     public void CancelStatement_HasReservationVariableReference()
     {
-        // "cancel res;" — Cancel.Reservation must be Reference("res", null).
+        // "cancel res;" - Cancel.Reservation must be Reference("res", null).
         // FindFirstCancel navigates the Composite tree to avoid position-dependency.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidCancelReservation);
         Cancel? cancel = AstVisitor.FindFirstCancel(root);
@@ -350,7 +350,7 @@ public class AstTraversalTests
     [Fact]
     public void PropertyAccess_HasCorrectVariableIdAndPropertyId()
     {
-        // "Number numBeds = myRoom.beds;" — RHS is Reference("myRoom", "beds").
+        // "Number numBeds = myRoom.beds;" - RHS is Reference("myRoom", "beds").
         // ExtractFirstAssignmentRhs skips ResourceDecl.PropertyList, so the
         // first assignment it finds is the numBeds = myRoom.beds one.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidResourcePropertyAccess);
@@ -384,7 +384,7 @@ public class AstTraversalTests
     [Fact]
     public void DateTimeLiteral_ParsesAsDateTimeVWithCorrectDate()
     {
-        // "DateTime dt = 15/03-2026;" → RHS must be DateTimeV carrying March 15, 2026.
+        // "DateTime dt = 15/03-2026;" -> RHS must be DateTimeV carrying March 15, 2026.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeDeclaration);
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var dt = Assert.IsType<DateTimeV>(rhs);
@@ -394,7 +394,7 @@ public class AstTraversalTests
     [Fact]
     public void DateTimeLiteralWithTime_ParsesAsDateTimeV()
     {
-        // "DateTime dt = 15/03-2026 14:00;" — optional time component must be accepted.
+        // "DateTime dt = 15/03-2026 14:00;" - optional time component must be accepted.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDateTimeWithTime);
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var dt = Assert.IsType<DateTimeV>(rhs);
@@ -405,7 +405,7 @@ public class AstTraversalTests
     [Fact]
     public void DurationLiteral_ParsesAsDurationVWithCorrectTimeSpan()
     {
-        // "Duration dur = 2 days;" → RHS must be DurationV with TimeSpan of exactly 2 days.
+        // "Duration dur = 2 days;" -> RHS must be DurationV with TimeSpan of exactly 2 days.
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidDurationDeclaration);
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var dur = Assert.IsType<DurationV>(rhs);
@@ -415,7 +415,7 @@ public class AstTraversalTests
     [Fact]
     public void DateTimePlusDurationInline_IsBinaryAddWithDateTimeVAndDurationV()
     {
-        // "DateTime dt = 15/03-2026 + 2 days;" — RHS must be ADD(DateTimeV, DurationV).
+        // "DateTime dt = 15/03-2026 + 2 days;" - RHS must be ADD(DateTimeV, DurationV).
         Stmt root = TestHelpers.ParseShouldSucceed("DateTime dt = 15/03-2026 + 2 days;");
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var add = Assert.IsType<BinaryOperation>(rhs);
@@ -427,7 +427,7 @@ public class AstTraversalTests
     [Fact]
     public void DateTimeComparison_IsBinaryLtWithTwoDateTimeV()
     {
-        // "Bool result = 15/03-2026 < 16/03-2026;" — must be LT(DateTimeV, DateTimeV).
+        // "Bool result = 15/03-2026 < 16/03-2026;" - must be LT(DateTimeV, DateTimeV).
         Stmt root = TestHelpers.ParseShouldSucceed("Bool result = 15/03-2026 < 16/03-2026;");
         Exp rhs = TestHelpers.ExtractFirstAssignmentRhs(root);
         var lt = Assert.IsType<BinaryOperation>(rhs);
@@ -441,7 +441,7 @@ public class AstTraversalTests
     [Fact]
     public void ReserveWhereClause_ConditionHasPropertyReference()
     {
-        // "where (r.beds == 2)" — condition must be EQ(Reference("r","beds"), NumberV).
+        // "where (r.beds == 2)" - condition must be EQ(Reference("r","beds"), NumberV).
         Stmt root = TestHelpers.ParseShouldSucceed(TestPrograms.ValidReserveWherePredicate);
         Exp? condition = AstVisitor.FindFirstQueryCondition(root);
         Assert.NotNull(condition);
